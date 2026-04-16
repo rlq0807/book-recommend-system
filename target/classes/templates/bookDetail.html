@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+
+<title>图书详情</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="container mt-5">
+
+<div class="card">
+
+<div class="card-body">
+
+<h2 th:text="${book.name}"></h2>
+
+<hr>
+
+<p>
+
+<b>作者：</b>
+
+<span th:text="${book.author}"></span>
+
+</p>
+
+<p>
+
+<b>分类：</b>
+
+<span th:text="${book.category}"></span>
+
+</p>
+
+<hr>
+
+<h4>图书简介</h4>
+
+<p th:text="${book.description}"></p>
+
+<hr>
+    <p>
+评分：
+<span th:text="${book.avgScore != null ? #numbers.formatDecimal(book.avgScore,1,1) : '暂无评分'}"></span>
+</p>
+    <hr>
+
+
+<h4>⭐ 评分</h4>
+
+<form action="/rating/rate" method="post">
+
+<input type="hidden"
+       name="bookId"
+       th:value="${book.id}">
+
+<select name="score" class="form-select" style="width:150px">
+
+<option value="5">★★★★★ 5</option>
+<option value="4">★★★★ 4</option>
+<option value="3">★★★ 3</option>
+<option value="2">★★ 2</option>
+<option value="1">★ 1</option>
+
+</select>
+
+<br>
+
+<button class="btn btn-warning">
+
+提交评分
+
+</button>
+
+</form>
+    <form action="/borrow/borrowBook"
+method="post">
+
+<input type="hidden"
+name="bookId"
+th:value="${book.id}">
+
+
+<button class="btn btn-primary">
+
+借阅这本书
+
+</button>
+
+</form>
+
+<a href="/borrow"
+class="btn btn-dark">
+
+返回借阅页面
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>图书推荐管理系统</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<style>
+
+body{
+background:#f8f9fa;
+}
+
+/* 左侧菜单 */
+
+.sidebar{
+
+height:100vh;
+
+background:#343a40;
+
+color:white;
+
+padding-top:20px;
+
+}
+
+.sidebar a{
+
+color:white;
+
+display:block;
+
+padding:15px;
+
+text-decoration:none;
+
+}
+
+.sidebar a:hover{
+
+background:#495057;
+
+}
+
+
+/* 卡片样式 */
+
+.card{
+
+border-radius:10px;
+
+box-shadow:0 2px 8px rgba(0,0,0,0.1);
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+
+<div class="container-fluid">
+
+<div class="row">
+
+<!-- 左侧导航栏 -->
+
+<div class="col-md-2 sidebar">
+
+<h4 class="text-center">
+
+📚 图书系统
+
+</h4>
+
+<hr>
+
+
+<a href="/borrow">
+📚 图书借阅
+</a>
+
+<a href="/rating">
+⭐ 图书评分
+</a>
+
+<a href="/recommend">
+🤖 图书推荐
+</a>
+
+<a href="/user">
+👤 个人中心
+    </a>
+
+<hr>
+
+<a href="/login">
+🚪 退出登录
+</a>
+
+
+</div>
+
+
+
+<!-- 主区域 -->
+
+<div class="col-md-10 p-4">
+
+<h3>
+
+欢迎进入图书推荐管理系统
+
+</h3>
+
+<hr>
+
+
+<div class="row">
+
+
+<!-- 推荐 -->
+
+<div class="col-md-4">
+
+<div class="card">
+
+<div class="card-body">
+
+<h5>
+
+🤖 个性化推荐
+
+</h5>
+
+<p>
+
+基于协同过滤算法推荐书籍
+
+</p>
+
+<a href="/recommend"
+   class="btn btn-warning">
+
+进入推荐
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+<!-- 图书借阅 -->
+
+<div class="col-md-4">
+
+<div class="card">
+
+<div class="card-body">
+
+<h5>
+
+📚 图书借阅
+
+</h5>
+
+<p>
+
+查看和借阅图书
+
+</p>
+
+<a href="/borrow"
+   class="btn btn-primary">
+
+进入借阅
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+
+<!-- 评分 -->
+
+<div class="col-md-4">
+
+<div class="card">
+
+<div class="card-body">
+
+<h5>
+
+⭐ 图书评分
+
+</h5>
+
+<p>
+
+给图书评分训练推荐模型
+
+</p>
+
+<a href="/rating"
+   class="btn btn-success">
+
+进入评分
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+</div>
+
+
+<br>
+
+
+<div class="row">
+
+
+<!-- 图书列表 -->
+
+<div class="col-md-4">
+
+<div class="card">
+
+<div class="card-body">
+
+<h5>
+
+📖 借阅记录
+
+</h5>
+
+<p>
+
+我的借阅记录
+
+</p>
+
+<a href="/borrow/records"
+   class="btn btn-dark">
+
+进入列表
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+<!-- 用户中心 -->
+
+<div class="col-md-4">
+
+<div class="card">
+
+<div class="card-body">
+
+<h5>
+
+👤 用户中心
+
+</h5>
+
+<p>
+
+查看个人信息和评分记录
+
+</p>
+
+<a href="/user"
+   class="btn btn-info">
+
+进入中心
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<!-- 即将过期书籍提示弹窗 -->
+<div class="modal fade" id="expireModal" tabindex="-1" aria-labelledby="expireModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="expireModalLabel">⚠️ 即将过期书籍提醒</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>您有以下书籍将在3天内过期，请及时归还：</p>
+        <ul>
+          <li th:each="book : ${soonExpireBooks}">
+            书籍ID: <span th:text="${book.bookId}"></span> - 到期时间: <span th:text="${#temporals.format(book.dueTime, 'yyyy-MM-dd HH:mm')}"></span>
+          </li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">知道了</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  // 检查是否有即将过期的书籍，如果有则显示弹窗
+  const soonExpireBooks = [[${soonExpireBooks}]];
+  if (soonExpireBooks && soonExpireBooks.length > 0) {
+    const expireModal = new bootstrap.Modal(document.getElementById('expireModal'));
+    expireModal.show();
+  }
+</script>
+
+</body>
+
+</html>

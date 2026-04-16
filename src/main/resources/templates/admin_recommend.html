@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+
+<meta charset="UTF-8">
+<title>推荐算法分析</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+background:#f5f5f5;
+}
+.card{
+margin-bottom:20px;
+border-radius:10px;
+}
+
+/* Toast样式 */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  min-width: 300px;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container mt-4">
+
+<h2>📊 推荐算法分析后台</h2>
+<hr>
+
+<!-- 错误信息显示 -->
+<div th:if="${error != null}" class="alert alert-danger" role="alert">
+    <span th:text="${error}"></span>
+</div>
+
+<form action="/admin/recommend/updateAlpha" method="post" onsubmit="return validateAlphaForm(this)" novalidate>
+    <label>α参数：</label>
+    <input type="number" step="0.1" min="0" max="1" name="alpha">
+    <button class="btn btn-primary">更新</button>
+</form>
+
+<p>当前 α 值：<span th:text="${alpha}" id="currentAlpha"></span></p>
+
+<form action="/admin/recommend/updateBeta" method="post" onsubmit="return validateBetaForm(this)" novalidate>
+    <label>β参数：</label>
+    <input type="number" step="0.1" min="0" max="1" name="beta">
+    <button class="btn btn-primary">更新</button>
+</form>
+
+<p>当前 β 值：<span th:text="${beta}" id="currentBeta"></span></p>
+
+<!-- α 折线图 -->
+<div class="card p-3">
+<h5>α 实验（Precision@5）</h5>
+<canvas id="alphaChart"></canvas>
+</div>
+
+<!-- TopK 折线图 -->
+<div class="card p-3">
+<h5>TopK 实验</h5>
+<canvas id="kChart"></canvas>
+</div>
+
+<!-- Alpha和Beta融合实验网格图 -->
+<div class="card p-3">
+<h5>Alpha和Beta融合实验</h5>
+<canvas id="alphaBetaChart"></canvas>
+</div>
+
+<!-- 表格 -->
+<div class="card p-3">
+<h5>实验数据表</h5>
+
+<!-- Alpha 数据 -->
+<h6 class="mt-3">Alpha 实验数据</h6>
+<table class="table table-bordered">
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>Precision@5</th>
+</tr>
+
+<tr th:each="entry : ${alphaData}">
+<td>α</td>
+<td th:text="${entry.key}"></td>
+<td th:text="${entry.value}"></td>
+</tr>
+
+</table>
+
+
+
+<!-- Alpha和Beta融合实验数据 -->
+<h6 class="mt-3">Alpha和Beta融合实验数据</h6>
+<table class="table table-bordered">
+<tr>
+<th>Alpha</th>
+<th>Beta</th>
+<th>Precision@5</th>
+</tr>
+
+<tr th:each="entry : ${alphaBetaData}">
+<td th:text="${entry.alpha}"></td>
+<td th:text="${entry.beta}"></td>
+<td th:text="${entry.precision}"></td>
+</tr>
+
+</table>
+
+</div>
+
+<a href="/admin" class="btn btn-dark">返回管理员首页</a>
+
+</div>
+
+<!-- JS 渲染图表 -->
+<script th:inline="javascript">
+
+// ===== α 数据 =====
+let alphaData = [[${alphaData}]];
+let alphaLabels = [];
+let alphaValues = [];
+
+// 处理Alpha数据
+for (let key in alphaData) {
+    if (alphaData.hasOwnProperty(key)) {
+        alphaLabels.push(key);
+        alphaValues.push(alphaData[key]);
+    }
+}
+
+new Chart(document.getElementById("alphaChart"), {
+    type: 'line',
+    data: {
+        labels: alphaLabels,
+        datasets: [{
+            label: 'Precision@5',
+            data: alphaValues,
+            fill: false,
+            tension: 0.3,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: true
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 1
+            }
+        }
+    }
+});
+
+// ===== K 数据 =====
+let kData = [[${kData}]];
+let kLabels = [];
+let kValues = [];
+
+// 处理K数据
+for (let key in kData) {
+    if (kData.hasOwnProperty(key)) {
+        kLabels.push(key);
+        kValues.push(kData[key]);
+    }
+}
+
+new Chart(document.getElementById("kChart"), {
+    type: 'line',
+    data: {
+        labels: kLabels,
+        datasets: [{
+            label: 'Precision@K',
+            data: kValues,
+            fill: false,
+            tension: 0.3,
+            borderColor: 'rgba(153, 102, 255, 1)',
+            backgroundColor: 'rgba(153, 102, 255, 0.2)'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: true
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 1
+            }
+        }
+    }
+});
+
+// ===== Alpha和Beta融合实验网格图 =====
+let alphaBetaData = [[${alphaBetaData}]];
+console.log('AlphaBetaData:', alphaBetaData);
+
+// 准备数据
+const gridData = [];
+
+// 处理AlphaBeta数据
+if (Array.isArray(alphaBetaData)) {
+    alphaBetaData.forEach(item => {
+        if (item && item.alpha !== undefined && item.beta !== undefined && item.precision !== undefined) {
+            gridData.push({
+                x: item.beta,
+                y: item.alpha,
+                precision: item.precision
+            });
+        }
+    });
+}
+
+console.log('GridData:', gridData);
+
+// 创建网格图
+new Chart(document.getElementById("alphaBetaChart"), {
+    type: 'scatter',
+    data: {
+        datasets: [{
+            label: 'Precision@5',
+            data: gridData,
+            backgroundColor: function(context) {
+                const value = context.raw.precision;
+                const alpha = 0.7;
+                if (value > 0.5) return `rgba(75, 192, 192, ${alpha})`;
+                if (value > 0.3) return `rgba(255, 206, 86, ${alpha})`;
+                return `rgba(255, 99, 132, ${alpha})`;
+            },
+            borderColor: 'rgba(0, 0, 0, 0.3)',
+            borderWidth: 1,
+            pointRadius: 20,
+            pointHoverRadius: 25,
+            pointStyle: 'rect'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    title: function() {
+                        return 'Alpha and Beta';
+                    },
+                    label: function(context) {
+                        const item = context.raw;
+                        return `Alpha: ${item.y}, Beta: ${item.x}, Precision: ${item.precision.toFixed(4)}`;
+                    }
+                }
+            },
+            legend: {
+                display: true,
+                labels: {
+                    generateLabels: function(chart) {
+                        return [{
+                            text: 'Precision@5',
+                            fillStyle: 'rgba(75, 192, 192, 0.7)',
+                            strokeStyle: 'rgba(0, 0, 0, 0.3)',
+                            lineWidth: 1
+                        }];
+                    }
+                }
+            },
+            // 添加格子内文字
+            afterDatasetsDraw: function(chart) {
+                const ctx = chart.ctx;
+                chart.data.datasets.forEach(function(dataset, i) {
+                    const meta = chart.getDatasetMeta(i);
+                    if (!meta.hidden) {
+                        meta.data.forEach(function(element, index) {
+                            const data = dataset.data[index];
+                            if (data && data.precision !== undefined) {
+                                // 绘制文字
+                                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                                ctx.font = '12px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(data.precision.toFixed(3), element.x, element.y);
+                            }
+                        });
+                    }
+                });
+            }
+        },
+        scales: {
+            x: {
+                type: 'linear',
+                position: 'bottom',
+                title: {
+                    display: true,
+                    text: 'Beta'
+                },
+                min: 0,
+                max: 1,
+                ticks: {
+                    stepSize: 0.1
+                }
+            },
+            y: {
+                type: 'linear',
+                position: 'left',
+                title: {
+                    display: true,
+                    text: 'Alpha'
+                },
+                min: 0,
+                max: 1,
+                ticks: {
+                    stepSize: 0.1
+                }
+            }
+        }
+    }
+});
+
+</script>
+
+<!-- 验证脚本 -->
+<script>
+// 显示Toast提示
+function showToast(message, type = 'danger') {
+  // 创建Toast元素
+  const toast = document.createElement('div');
+  toast.className = `toast bg-${type} text-white`;
+  toast.style.position = 'fixed';
+  toast.style.top = '20px';
+  toast.style.right = '20px';
+  toast.style.zIndex = '10000';
+  toast.style.minWidth = '300px';
+  toast.style.padding = '15px';
+  toast.style.borderRadius = '5px';
+  toast.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+  toast.style.animation = 'slideIn 0.3s ease-out';
+  toast.innerHTML = `
+    <div class="d-flex align-items-center">
+      <span>${message}</span>
+      <button type="button" class="btn-close btn-close-white ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+    </div>
+  `;
+  
+  // 添加到页面
+  document.body.appendChild(toast);
+  
+  // 3秒后自动消失
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.style.animation = 'slideIn 0.3s ease-out reverse';
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 3000);
+  
+  // 确保Toast可见
+  toast.style.display = 'block';
+  console.log('Toast shown:', message);
+}
+
+// 验证Alpha表单
+function validateAlphaForm(form) {
+  console.log('validateAlphaForm called');
+  const alphaInput = form.querySelector('input[name="alpha"]');
+  console.log('Input value:', alphaInput.value);
+  
+  const alpha = parseFloat(alphaInput.value);
+  console.log('Parsed alpha:', alpha);
+  
+  // 检查是否为空
+  if (alphaInput.value.trim() === '' || isNaN(alpha)) {
+    showToast('请输入有效的α值');
+    return false;
+  }
+  
+  // 检查范围
+  if (alpha < 0 || alpha > 1) {
+    showToast('α值必须在0-1之间');
+    return false;
+  }
+  
+  // 检查Alpha + Beta是否超过1
+  const currentBeta = parseFloat(document.getElementById('currentBeta').textContent);
+  console.log('Current beta:', currentBeta);
+  if (alpha + currentBeta > 1) {
+    showToast('α + β 不能超过1');
+    return false;
+  }
+  
+  return true;
+}
+
+// 验证Beta表单
+function validateBetaForm(form) {
+  console.log('validateBetaForm called');
+  const betaInput = form.querySelector('input[name="beta"]');
+  console.log('Input value:', betaInput.value);
+  
+  const beta = parseFloat(betaInput.value);
+  console.log('Parsed beta:', beta);
+  
+  // 检查是否为空
+  if (betaInput.value.trim() === '' || isNaN(beta)) {
+    showToast('请输入有效的β值');
+    return false;
+  }
+  
+  // 检查范围
+  if (beta < 0 || beta > 1) {
+    showToast('β值必须在0-1之间');
+    return false;
+  }
+  
+  // 检查Alpha + Beta是否超过1
+  const currentAlpha = parseFloat(document.getElementById('currentAlpha').textContent);
+  console.log('Current alpha:', currentAlpha);
+  if (currentAlpha + beta > 1) {
+    showToast('α + β 不能超过1');
+    return false;
+  }
+  
+  return true;
+}
+</script>
+
+</body>
+</html>

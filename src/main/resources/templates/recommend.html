@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+<meta charset="UTF-8">
+<title>图书推荐</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+
+body{
+    background:#f5f5f5;
+}
+
+.card{
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    transition:0.2s;
+}
+
+.card:hover{
+    transform:translateY(-5px);
+}
+
+.badge-score{
+    background:#ffc107;
+    color:#000;
+}
+
+.badge-hot{
+    background:#dc3545;
+}
+
+.reason{
+    font-size:13px;
+    color:#666;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container mt-4">
+
+<h2>🤖 个性化推荐</h2>
+
+<p>
+欢迎：
+<b th:text="${username}"></b>
+</p>
+
+<hr>
+
+<!-- 搜索 + 返回 + 评分偏置开关 -->
+<div class="row mb-4">
+
+<div class="col-md-4">
+<input id="searchInput" class="form-control" placeholder="搜索推荐书籍">
+</div>
+
+<div class="col-md-4 d-flex align-items-center">
+<div class="form-check form-switch">
+  <input class="form-check-input" type="checkbox" id="biasSwitch" th:checked="${useBias}" onchange="toggleBias()">
+  <label class="form-check-label" for="biasSwitch">使用评分偏置算法</label>
+</div>
+</div>
+
+<div class="col-md-4 text-end">
+<a href="/home" class="btn btn-dark">返回主页</a>
+</div>
+
+</div>
+
+<script>
+function toggleBias() {
+    const useBias = document.getElementById('biasSwitch').checked;
+    window.location.href = '/recommend?useBias=' + useBias;
+}
+</script>
+
+<!-- 推荐列表 -->
+<div class="row" id="bookList">
+
+<div class="col-md-4 mb-4"
+     th:each="r : ${recommendList}">
+
+<div class="card h-100">
+
+<div class="card-body">
+
+<!-- 书名 -->
+<h5 th:text="${r.book.name}"></h5>
+
+<!-- 作者 -->
+<p>
+<b>作者：</b>
+<span th:text="${r.book.author}"></span>
+</p>
+
+<!-- 推荐理由 -->
+<p class="reason" th:text="${r.reason}"></p>
+
+<!-- ⭐评分 -->
+<p>
+<span class="badge badge-score">
+⭐
+<span th:text="${r.book.avgScore != null && r.book.avgScore > 0 ?
+#numbers.formatDecimal(r.book.avgScore,1,1) : '暂无评分'}">
+</span>
+</span>
+</p>
+
+<!-- 🔥热门 -->
+<p>
+<span class="badge badge-hot">
+🔥
+<span th:text="${r.book.hotCount != null ? r.book.hotCount : 0}"></span>
+次借阅
+</span>
+</p>
+
+</div>
+
+<div class="card-footer d-flex justify-content-between">
+
+<a class="btn btn-info btn-sm"
+   th:href="@{/book/{id}(id=${r.book.id})}">
+详情
+</a>
+
+<form action="/borrow/borrowBook" method="post" style="display:inline">
+    <input type="hidden" name="bookId" th:value="${r.book.id}">
+    <input type="hidden" name="from" value="recommend">
+    <button class="btn btn-primary">
+        借阅
+    </button>
+</form>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast position-fixed top-0 end-0 m-3" id="msgToast" style="z-index:9999;">
+    <div class="toast-body bg-success text-white" id="toastBody">
+        操作成功！
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+    const msg = [[${msg} ?: '']];
+
+    if (msg) {
+        let text = '';
+
+        if (msg === 'success') {
+            text = '借阅成功！';
+        } else if (msg === 'borrowed') {
+            text = '该书已被借出！';
+        } else {
+            text = msg;
+        }
+
+        const toastEl = document.getElementById('msgToast');
+        document.getElementById('toastBody').innerText = text;
+
+        const toast = new bootstrap.Toast(toastEl, { delay: 2000 });
+        toast.show();
+    }
+</script>
+
+</body>
+</html>

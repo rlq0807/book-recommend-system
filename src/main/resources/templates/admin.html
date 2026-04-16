@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>管理员后台</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container mt-4">
+
+<h2>🛠 管理员后台</h2>
+<p>欢迎，<span th:text="${username}"></span></p>
+
+<hr>
+
+<div class="row">
+
+<div class="col-md-4">
+<a href="/admin/books" class="btn btn-primary w-100 mb-3">
+📚 图书管理
+</a>
+</div>
+
+<div class="col-md-4">
+<a href="/admin/overdue" class="btn btn-danger w-100 mb-3">
+⏰ 逾期未归还
+</a>
+</div>
+
+<div class="col-md-4">
+<a href="/admin/recommend" class="btn btn-success w-100 mb-3">
+📊 推荐算法效果
+</a>
+</div>
+
+</div>
+
+<a href="/logout" class="btn btn-dark">退出登录</a>
+
+</div>
+
+</body>
+</html>

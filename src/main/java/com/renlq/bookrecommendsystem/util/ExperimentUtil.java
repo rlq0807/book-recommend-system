@@ -50,7 +50,7 @@ public class ExperimentUtil {
 
             dataset.addValue(
                     entry.getValue(),
-                    "Precision",
+                    "Metric",
                     entry.getKey().toString()
             );
         }
@@ -76,27 +76,22 @@ public class ExperimentUtil {
                 new StandardCategoryItemLabelGenerator()
         );
 
-        // 设置字体大小
         Font titleFont = new Font("Microsoft YaHei", Font.BOLD, 24);
         Font labelFont = new Font("Microsoft YaHei", Font.PLAIN, 18);
         Font tickFont = new Font("Microsoft YaHei", Font.PLAIN, 16);
         Font itemLabelFont = new Font("Microsoft YaHei", Font.PLAIN, 14);
 
-        // 设置标题字体
         TextTitle chartTitle = chart.getTitle();
         chartTitle.setFont(titleFont);
 
-        // 设置X轴
         CategoryAxis xAxis = plot.getDomainAxis();
         xAxis.setLabelFont(labelFont);
         xAxis.setTickLabelFont(tickFont);
 
-        // 设置Y轴
         NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
         yAxis.setLabelFont(labelFont);
         yAxis.setTickLabelFont(tickFont);
 
-        // 设置数据标签字体
         renderer.setDefaultItemLabelFont(itemLabelFont);
 
         ChartUtils.saveChartAsPNG(
@@ -125,7 +120,7 @@ public class ExperimentUtil {
         Row header = sheet.createRow(0);
 
         header.createCell(0).setCellValue("Parameter");
-        header.createCell(1).setCellValue("Precision");
+        header.createCell(1).setCellValue("Value");
 
         int rowIndex = 1;
 
@@ -162,59 +157,61 @@ public class ExperimentUtil {
 
         Workbook workbook = new XSSFWorkbook();
 
-        Sheet sheet = 
+        Sheet sheet =
                 workbook.createSheet(sheetName);
 
-        // 收集所有唯一的Alpha和Beta值
         Set<Double> alphaSet = new HashSet<>();
         Set<Double> betaSet = new HashSet<>();
-        Map<String, Double> precisionMap = new HashMap<>();
+        Map<String, Double> valueMap = new HashMap<>();
 
         for (Map<String, Object> entry : data) {
             Double alpha = (Double) entry.get("alpha");
             Double beta = (Double) entry.get("beta");
-            Double precision = (Double) entry.get("precision");
+            Double value;
+            if (entry.containsKey("f1")) {
+                value = (Double) entry.get("f1");
+            } else if (entry.containsKey("precision")) {
+                value = (Double) entry.get("precision");
+            } else {
+                value = (Double) entry.get("recall");
+            }
             alphaSet.add(alpha);
             betaSet.add(beta);
-            precisionMap.put(alpha + "," + beta, precision);
+            valueMap.put(alpha + "," + beta, value);
         }
 
-        // 排序
         List<Double> alphaList = new ArrayList<>(alphaSet);
         List<Double> betaList = new ArrayList<>(betaSet);
-        alphaList.sort(Collections.reverseOrder()); // Alpha降序，大值在上方
-        betaList.sort(Double::compareTo); // Beta升序，小值在左侧
+        alphaList.sort(Collections.reverseOrder());
+        betaList.sort(Double::compareTo);
 
-        // 创建表头（第一行是Beta值）
         Row headerRow = sheet.createRow(0);
-        headerRow.createCell(0).setCellValue("Alpha\\Beta"); // 第一列标题
+        headerRow.createCell(0).setCellValue("Alpha\\Beta");
         for (int i = 0; i < betaList.size(); i++) {
             headerRow.createCell(i + 1).setCellValue(betaList.get(i));
         }
 
-        // 填充表格内容
         for (int i = 0; i < alphaList.size(); i++) {
             Double alpha = alphaList.get(i);
             Row row = sheet.createRow(i + 1);
-            row.createCell(0).setCellValue(alpha); // 第一列是Alpha值
+            row.createCell(0).setCellValue(alpha);
 
             for (int j = 0; j < betaList.size(); j++) {
                 Double beta = betaList.get(j);
-                Double precision = precisionMap.get(alpha + "," + beta);
-                if (precision != null) {
-                    row.createCell(j + 1).setCellValue(precision);
+                Double value = valueMap.get(alpha + "," + beta);
+                if (value != null) {
+                    row.createCell(j + 1).setCellValue(value);
                 } else {
                     row.createCell(j + 1).setCellValue("-");
                 }
             }
         }
 
-        // 自动调整列宽
         for (int i = 0; i <= betaList.size(); i++) {
             sheet.autoSizeColumn(i);
         }
 
-        FileOutputStream out = 
+        FileOutputStream out =
                 new FileOutputStream(filePath);
 
         workbook.write(out);
@@ -233,21 +230,19 @@ public class ExperimentUtil {
             String filePath
     ) throws Exception {
 
-        // 计算实际的Precision值范围
-        double minPrecision = Double.MAX_VALUE;
-        double maxPrecision = Double.MIN_VALUE;
+        double minValue = Double.MAX_VALUE;
+        double maxValue = Double.MIN_VALUE;
         for (Double alpha : data.keySet()) {
             for (Double beta : data.get(alpha).keySet()) {
-                double precision = data.get(alpha).get(beta);
-                if (precision < minPrecision) minPrecision = precision;
-                if (precision > maxPrecision) maxPrecision = precision;
+                double value = data.get(alpha).get(beta);
+                if (value < minValue) minValue = value;
+                if (value > maxValue) maxValue = value;
             }
         }
-        
-        // 确保范围合理
-        if (minPrecision == maxPrecision) {
-            minPrecision = 0;
-            maxPrecision = 1;
+
+        if (minValue == maxValue) {
+            minValue = 0;
+            maxValue = 1;
         }
 
         DefaultXYZDataset dataset = new DefaultXYZDataset();
@@ -268,7 +263,7 @@ public class ExperimentUtil {
         double[] y = yList.stream().mapToDouble(Double::doubleValue).toArray();
         double[] z = zList.stream().mapToDouble(Double::doubleValue).toArray();
 
-        dataset.addSeries("Precision", new double[][]{x, y, z});
+        dataset.addSeries("Metric", new double[][]{x, y, z});
 
         JFreeChart chart = ChartFactory.createScatterPlot(
                 title,
@@ -281,11 +276,10 @@ public class ExperimentUtil {
 
         XYBlockRenderer renderer = new XYBlockRenderer();
 
-        // 使用实际数据范围创建颜色缩放
-        PaintScale scale = new LookupPaintScale(minPrecision, maxPrecision, java.awt.Color.WHITE);
-        ((LookupPaintScale) scale).add(minPrecision, java.awt.Color.BLUE);
-        ((LookupPaintScale) scale).add((minPrecision + maxPrecision) / 2, java.awt.Color.YELLOW);
-        ((LookupPaintScale) scale).add(maxPrecision, java.awt.Color.RED);
+        PaintScale scale = new LookupPaintScale(minValue, maxValue, java.awt.Color.WHITE);
+        ((LookupPaintScale) scale).add(minValue, java.awt.Color.BLUE);
+        ((LookupPaintScale) scale).add((minValue + maxValue) / 2, java.awt.Color.YELLOW);
+        ((LookupPaintScale) scale).add(maxValue, java.awt.Color.RED);
 
         renderer.setPaintScale(scale);
         renderer.setBlockHeight(0.1);
@@ -293,10 +287,9 @@ public class ExperimentUtil {
 
         plot.setRenderer(renderer);
 
-        // 设置轴范围
         NumberAxis xAxis = (NumberAxis) plot.getDomainAxis();
         xAxis.setRange(-0.1, 1.1);
-        
+
         NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
         yAxis.setRange(-0.1, 1.1);
 

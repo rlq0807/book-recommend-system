@@ -46,30 +46,51 @@ public class AdminRecommendController {
         }
     }
 
+    @PostMapping("/updateTopN")
+    public String updateTopN(@RequestParam int topN, Model model){
+        try {
+            configService.setTopN(topN);
+            // 直接返回recommendPage，避免重定向导致的重复计算
+            return recommendPage(model);
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("error", e.getMessage());
+            return recommendPage(model);
+        }
+    }
+
     @GetMapping
     public String recommendPage(Model model) {
         try {
-            // 生成所有实验报告并保存到本地
             recommendService.generateAllReports();
             model.addAttribute("success", "实验报告生成成功！");
         } catch (Exception e) {
             model.addAttribute("error", "生成实验报告失败：" + e.getMessage());
         }
 
-        // α实验
         Map<Double, Double> alphaData = recommendService.alphaExperiment(5);
-
-        // TopK实验
         Map<Integer, Double> kData = recommendService.topKExperiment(configService.getAlpha());
-
-        // Alpha和Beta融合实验
         List<Map<String, Object>> alphaBetaData = recommendService.alphaBetaExperiment(5);
+
+        Map<Double, Double> alphaDataRecall = recommendService.alphaExperimentRecall(5);
+        Map<Integer, Double> kDataRecall = recommendService.topKExperimentRecall(configService.getAlpha());
+        List<Map<String, Object>> alphaBetaDataRecall = recommendService.alphaBetaExperimentRecall(5);
+
+        Map<Double, Double> alphaDataF1 = recommendService.alphaExperimentF1(5);
+        Map<Integer, Double> kDataF1 = recommendService.topKExperimentF1(configService.getAlpha());
+        List<Map<String, Object>> alphaBetaDataF1 = recommendService.alphaBetaExperimentF1(5);
 
         model.addAttribute("alphaData", alphaData);
         model.addAttribute("kData", kData);
         model.addAttribute("alphaBetaData", alphaBetaData);
+        model.addAttribute("alphaDataRecall", alphaDataRecall);
+        model.addAttribute("kDataRecall", kDataRecall);
+        model.addAttribute("alphaBetaDataRecall", alphaBetaDataRecall);
+        model.addAttribute("alphaDataF1", alphaDataF1);
+        model.addAttribute("kDataF1", kDataF1);
+        model.addAttribute("alphaBetaDataF1", alphaBetaDataF1);
         model.addAttribute("alpha", configService.getAlpha());
         model.addAttribute("beta", configService.getBeta());
+        model.addAttribute("topN", configService.getTopN());
         return "admin_recommend";
     }
     

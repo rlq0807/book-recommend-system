@@ -15,15 +15,7 @@ import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYBlockRenderer;
 import org.jfree.chart.renderer.PaintScale;
 import org.jfree.chart.renderer.LookupPaintScale;
-import com.orsoncharts.Chart3D;
-import com.orsoncharts.Chart3DFactory;
-import com.orsoncharts.data.xyz.XYZDataset;
-import com.orsoncharts.data.xyz.XYZSeries;
-import com.orsoncharts.data.xyz.XYZSeriesCollection;
-import com.orsoncharts.graphics3d.Dimension3D;
-import com.orsoncharts.graphics3d.ExportUtils;
-import com.orsoncharts.plot.XYZPlot;
-import com.orsoncharts.renderer.xyz.SurfaceRenderer;
+
 
 import java.awt.*;
 import java.awt.Font;
@@ -311,54 +303,6 @@ public class ExperimentUtil {
         ChartUtils.saveChartAsPNG(new File(filePath), chart, 800, 600);
     }
 
-    /**
-     * 生成3D曲面图
-     */
-    public static void generate3DSurfaceChart(
-            Map<Double, Map<Double, Double>> data,
-            String filePath
-    ) throws Exception {
 
-        XYZSeries series = new XYZSeries("Alpha-Beta-Precision");
-
-        for (Double alpha : data.keySet()) {
-            for (Double beta : data.get(alpha).keySet()) {
-
-                double precision = data.get(alpha).get(beta);
-
-                series.add(alpha, beta, precision);
-            }
-        }
-
-        XYZDataset dataset = new XYZSeriesCollection(series);
-
-        Chart3D chart = Chart3DFactory.createSurfaceChart(
-                "Alpha-Beta 3D Surface",
-                "Alpha",
-                "Beta",
-                "Precision",
-                dataset
-        );
-
-        XYZPlot plot = (XYZPlot) chart.getPlot();
-
-        SurfaceRenderer renderer = new SurfaceRenderer();
-        plot.setRenderer(renderer);
-
-        chart.setViewPoint(
-                new com.orsoncharts.graphics3d.ViewPoint3D(
-                        40,   // 旋转角度（左右）
-                        30,   // 俯视角
-                        10    // 距离
-                )
-        );
-
-        ExportUtils.writeAsPNG(
-                chart,
-                800,
-                600,
-                new java.io.File(filePath)
-        );
-    }
 
 }

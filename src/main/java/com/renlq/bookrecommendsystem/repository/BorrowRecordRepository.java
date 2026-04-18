@@ -30,8 +30,9 @@ public interface BorrowRecordRepository
        "WHERE b.status = 'BORROWED' " +
        "AND b.dueTime < :now")
     List<BorrowRecord> findOverdueBooks(@Param("now") LocalDateTime now);
-    // ⭐ 统计借阅次数（新增这个）
-    Long countByBookId(Long bookId);
+    // 统计借阅次数
+    @Query("SELECT COUNT(b) FROM BorrowRecord b WHERE b.bookId = :bookId")
+    Long countByBookId(@Param("bookId") Long bookId);
 
     // 查询3天内即将过期的书籍
     @Query("SELECT b FROM BorrowRecord b " +

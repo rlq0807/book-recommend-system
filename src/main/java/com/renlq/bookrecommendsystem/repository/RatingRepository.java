@@ -10,7 +10,7 @@ import java.util.List;
 public interface RatingRepository extends JpaRepository<Rating, Long> {
 
     List<Rating> findByUserId(Long userId);
-     Rating findByUserIdAndBookId(Long userId, Long bookId);
+     List<Rating> findByUserIdAndBookId(Long userId, Long bookId);
      @Query("SELECT AVG(r.score) FROM Rating r WHERE r.bookId = :bookId")
     Double getAverageScore(@Param("bookId") Long bookId);
      @Query("SELECT r.bookId, AVG(r.score) as avgScore " +

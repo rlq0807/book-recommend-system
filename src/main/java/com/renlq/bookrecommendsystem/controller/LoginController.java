@@ -2,10 +2,13 @@ package com.renlq.bookrecommendsystem.controller;
 
 import com.renlq.bookrecommendsystem.entity.User;
 import com.renlq.bookrecommendsystem.repository.UserRepository;
+import com.renlq.bookrecommendsystem.repository.BookRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.servlet.http.HttpSession;
 
@@ -14,6 +17,7 @@ import javax.servlet.http.HttpSession;
 public class LoginController {
 
     private final UserRepository userRepository;
+    private final BookRepository bookRepository;
 
     // ===== 登录页面 =====
     @GetMapping("/login")
@@ -53,7 +57,18 @@ public class LoginController {
 
     // ===== 注册页面 =====
     @GetMapping("/register")
-    public String registerPage(){
+    public String registerPage(Model model){
+        // 获取所有唯一的分类（用于搜索）
+        model.addAttribute("allCategories", bookRepository.findAllDistinctCategories());
+        // 获取出现次数最多的前8个分类（默认显示）
+        List<Object[]> topCategoriesWithCount = bookRepository.findTop8CategoriesByCount();
+        List<String> topCategories = new ArrayList<>();
+        // 只取前8个分类
+        int limit = Math.min(8, topCategoriesWithCount.size());
+        for (int i = 0; i < limit; i++) {
+            topCategories.add((String) topCategoriesWithCount.get(i)[0]);
+        }
+        model.addAttribute("categories", topCategories);
         return "register";
     }
 
@@ -63,6 +78,7 @@ public class LoginController {
                            @RequestParam String password,
                            @RequestParam String confirmPassword,
                            @RequestParam String email,
+                           @RequestParam(required = false) String preferredCategories,
                            Model model){
 
         if(!password.equals(confirmPassword)){
@@ -84,6 +100,7 @@ public class LoginController {
         user.setUsername(username);
         user.setPassword(password);
         user.setEmail(email);
+        user.setPreferredCategories(preferredCategories);
 
         userRepository.save(user);
 

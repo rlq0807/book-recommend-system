@@ -54,6 +54,12 @@ public class BorrowService {
 
         borrowRecordRepository.save(record);
 
+        Book book = bookRepository.findById(bookId).orElse(null);
+        if (book != null) {
+            book.setHotCount(book.getHotCount() == null ? 1 : book.getHotCount() + 1);
+            bookRepository.save(book);
+        }
+
         return "借阅成功";
     }
 

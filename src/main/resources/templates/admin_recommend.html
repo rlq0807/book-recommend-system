@@ -253,6 +253,55 @@ border-radius:10px;
 </table>
 </div>
 
+<!-- NDCG指标 -->
+<div class="metric-section">
+<h4>🎯 NDCG@K 指标</h4>
+
+<div class="chart-row">
+    <div class="chart-container">
+        <h6>α 实验（NDCG@5）</h6>
+        <canvas id="alphaChartNDCG"></canvas>
+    </div>
+    <div class="chart-container">
+        <h6>TopK 实验</h6>
+        <canvas id="kChartNDCG"></canvas>
+    </div>
+</div>
+
+<div class="chart-container" style="max-width: 800px; margin-top: 20px;">
+    <h6>Alpha和Beta融合实验</h6>
+    <canvas id="alphaBetaChartNDCG"></canvas>
+</div>
+
+<h6 class="mt-4">Alpha 实验数据</h6>
+<table class="table table-bordered">
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>NDCG@5</th>
+</tr>
+<tr th:each="entry : ${alphaDataNDCG}">
+<td>α</td>
+<td th:text="${entry.key}"></td>
+<td th:text="${entry.value}"></td>
+</tr>
+</table>
+
+<h6 class="mt-3">Alpha和Beta融合实验数据</h6>
+<table class="table table-bordered">
+<tr>
+<th>Alpha</th>
+<th>Beta</th>
+<th>NDCG@5</th>
+</tr>
+<tr th:each="entry : ${alphaBetaDataNDCG}">
+<td th:text="${entry.alpha}"></td>
+<td th:text="${entry.beta}"></td>
+<td th:text="${entry.ndcg}"></td>
+</tr>
+</table>
+</div>
+
 </div>
 
 <script th:inline="javascript">
@@ -600,6 +649,125 @@ new Chart(document.getElementById("alphaBetaChartF1"), {
                     label: function(context) {
                         const item = context.raw;
                         return `Alpha: ${item.y}, Beta: ${item.x}, F1: ${item.value.toFixed(4)}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Beta' }, min: 0, max: 1, ticks: { stepSize: 0.1 } },
+            y: { type: 'linear', title: { display: true, text: 'Alpha' }, min: 0, max: 1, ticks: { stepSize: 0.1 } }
+        }
+    }
+});
+
+// ===== NDCG Charts =====
+
+// α Chart (NDCG)
+let alphaDataNDCG = [[${alphaDataNDCG}]];
+let alphaLabelsNDCG = [];
+let alphaValuesNDCG = [];
+for (let key in alphaDataNDCG) {
+    if (alphaDataNDCG.hasOwnProperty(key)) {
+        // 格式化x轴标签，确保显示为一位小数
+        alphaLabelsNDCG.push(parseFloat(key).toFixed(1));
+        alphaValuesNDCG.push(alphaDataNDCG[key]);
+    }
+}
+
+new Chart(document.getElementById("alphaChartNDCG"), {
+    type: 'line',
+    data: {
+        labels: alphaLabelsNDCG,
+        datasets: [{
+            label: 'NDCG@5',
+            data: alphaValuesNDCG,
+            fill: false,
+            tension: 0.3,
+            borderColor: 'rgba(255, 99, 132, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: true } },
+        scales: { y: { beginAtZero: true, max: 1 } }
+    }
+});
+
+// K Chart (NDCG)
+let kDataNDCG = [[${kDataNDCG}]];
+let kLabelsNDCG = [];
+let kValuesNDCG = [];
+for (let key in kDataNDCG) {
+    if (kDataNDCG.hasOwnProperty(key)) {
+        kLabelsNDCG.push(key);
+        kValuesNDCG.push(kDataNDCG[key]);
+    }
+}
+
+new Chart(document.getElementById("kChartNDCG"), {
+    type: 'line',
+    data: {
+        labels: kLabelsNDCG,
+        datasets: [{
+            label: 'NDCG@K',
+            data: kValuesNDCG,
+            fill: false,
+            tension: 0.3,
+            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: true } },
+        scales: { y: { beginAtZero: true, max: 1 } }
+    }
+});
+
+// AlphaBeta Chart (NDCG)
+let alphaBetaDataNDCG = [[${alphaBetaDataNDCG}]];
+const gridDataNDCG = [];
+if (Array.isArray(alphaBetaDataNDCG)) {
+    alphaBetaDataNDCG.forEach(item => {
+        if (item && item.alpha !== undefined && item.beta !== undefined && item.ndcg !== undefined) {
+            gridDataNDCG.push({
+                x: item.beta,
+                y: item.alpha,
+                value: item.ndcg
+            });
+        }
+    });
+}
+
+new Chart(document.getElementById("alphaBetaChartNDCG"), {
+    type: 'scatter',
+    data: {
+        datasets: [{
+            label: 'NDCG@5',
+            data: gridDataNDCG,
+            backgroundColor: function(context) {
+                const value = context.raw.value;
+                const alpha = 0.7;
+                if (value > 0.5) return `rgba(255, 99, 132, ${alpha})`;
+                if (value > 0.3) return `rgba(255, 206, 86, ${alpha})`;
+                return `rgba(54, 162, 235, ${alpha})`;
+            },
+            borderColor: 'rgba(0, 0, 0, 0.3)',
+            borderWidth: 1,
+            pointRadius: 20,
+            pointHoverRadius: 25,
+            pointStyle: 'rect'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const item = context.raw;
+                        return `Alpha: ${item.y}, Beta: ${item.x}, NDCG: ${item.value.toFixed(4)}`;
                     }
                 }
             }

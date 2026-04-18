@@ -86,10 +86,10 @@ for(Rating r : ratings){
 
     for(BorrowRecord br : returnedList){
 
-        Rating r = ratingRepository
+        List<Rating> userBookRatings = ratingRepository
                 .findByUserIdAndBookId(user.getId(), br.getBookId());
 
-        if(r == null){
+        if(userBookRatings.isEmpty()){
             Book book = bookRepository.findById(br.getBookId()).orElse(null);
             toRateList.add(book);
         }

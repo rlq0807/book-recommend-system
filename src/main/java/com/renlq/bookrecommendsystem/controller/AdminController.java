@@ -90,7 +90,26 @@ public String updateBook(Book book){
     List<BorrowRecord> list =
             borrowService.getOverdueBooks();
 
+    // 获取所有用户和图书的映射
+    List<User> allUsers = userRepository.findAll();
+    List<Book> allBooks = bookRepository.findAll();
+
+    // 转换为Map格式，方便前端查找
+    java.util.Map<Long, User> userMap = new java.util.HashMap<>();
+    for (User user : allUsers) {
+        userMap.put(user.getId(), user);
+    }
+
+    java.util.Map<Long, Book> bookMap = new java.util.HashMap<>();
+    for (Book book : allBooks) {
+        bookMap.put(book.getId(), book);
+    }
+
     model.addAttribute("records", list);
+    model.addAttribute("users", allUsers);
+    model.addAttribute("books", allBooks);
+    model.addAttribute("userMap", userMap);
+    model.addAttribute("bookMap", bookMap);
 
     return "admin_overdue";
 }

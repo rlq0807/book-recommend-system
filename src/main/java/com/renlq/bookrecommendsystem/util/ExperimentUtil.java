@@ -21,14 +21,8 @@ import java.awt.*;
 import java.awt.Font;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public class ExperimentUtil {
 
@@ -157,38 +151,48 @@ public class ExperimentUtil {
 
         Workbook workbook = new XSSFWorkbook();
 
-        Sheet sheet =
-                workbook.createSheet(sheetName);
+        Sheet sheet = workbook.createSheet(sheetName);
 
-        Set<Double> alphaSet = new HashSet<>();
-        Set<Double> betaSet = new HashSet<>();
+        Set<Double> alphaSet = new LinkedHashSet<>();
+        Set<Double> betaSet = new LinkedHashSet<>();
         Map<String, Double> valueMap = new HashMap<>();
 
         for (Map<String, Object> entry : data) {
             Double alpha = (Double) entry.get("alpha");
             Double beta = (Double) entry.get("beta");
-            Double value;
-            if (entry.containsKey("f1")) {
-                value = (Double) entry.get("f1");
-            } else if (entry.containsKey("precision")) {
-                value = (Double) entry.get("precision");
-            } else {
-                value = (Double) entry.get("recall");
+            Double value = null;
+
+            if (entry.containsKey("f1") && entry.get("f1") != null) {
+                value = ((Number) entry.get("f1")).doubleValue();
+            } else if (entry.containsKey("precision") && entry.get("precision") != null) {
+                value = ((Number) entry.get("precision")).doubleValue();
+            } else if (entry.containsKey("recall") && entry.get("recall") != null) {
+                value = ((Number) entry.get("recall")).doubleValue();
+            } else if (entry.containsKey("ndcg") && entry.get("ndcg") != null) {
+                value = ((Number) entry.get("ndcg")).doubleValue();
             }
-            alphaSet.add(alpha);
-            betaSet.add(beta);
-            valueMap.put(alpha + "," + beta, value);
+
+            if (value != null) {
+                double roundedAlpha = Math.round(alpha * 10) / 10.0;
+                double roundedBeta = Math.round(beta * 10) / 10.0;
+                alphaSet.add(roundedAlpha);
+                betaSet.add(roundedBeta);
+                valueMap.put(roundedAlpha + "," + roundedBeta, value);
+            }
         }
 
         List<Double> alphaList = new ArrayList<>(alphaSet);
         List<Double> betaList = new ArrayList<>(betaSet);
-        alphaList.sort(Collections.reverseOrder());
-        betaList.sort(Double::compareTo);
+        Collections.sort(alphaList, Collections.reverseOrder());
+        Collections.sort(betaList);
 
         Row headerRow = sheet.createRow(0);
-        headerRow.createCell(0).setCellValue("Alpha\\Beta");
+        Cell firstCell = headerRow.createCell(0);
+        firstCell.setCellValue("Alpha\\Beta");
+
         for (int i = 0; i < betaList.size(); i++) {
-            headerRow.createCell(i + 1).setCellValue(betaList.get(i));
+            Cell cell = headerRow.createCell(i + 1);
+            cell.setCellValue(betaList.get(i));
         }
 
         for (int i = 0; i < alphaList.size(); i++) {
@@ -199,10 +203,11 @@ public class ExperimentUtil {
             for (int j = 0; j < betaList.size(); j++) {
                 Double beta = betaList.get(j);
                 Double value = valueMap.get(alpha + "," + beta);
+                Cell cell = row.createCell(j + 1);
                 if (value != null) {
-                    row.createCell(j + 1).setCellValue(value);
+                    cell.setCellValue(value);
                 } else {
-                    row.createCell(j + 1).setCellValue("-");
+                    cell.setCellValue("-");
                 }
             }
         }
@@ -211,13 +216,9 @@ public class ExperimentUtil {
             sheet.autoSizeColumn(i);
         }
 
-        FileOutputStream out =
-                new FileOutputStream(filePath);
-
+        FileOutputStream out = new FileOutputStream(filePath);
         workbook.write(out);
-
         workbook.close();
-
         out.close();
     }
 
@@ -295,7 +296,4 @@ public class ExperimentUtil {
 
         ChartUtils.saveChartAsPNG(new File(filePath), chart, 800, 600);
     }
-
-
-
 }

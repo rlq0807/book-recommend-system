@@ -25,8 +25,8 @@ public class RecommendController {
    @GetMapping
 public String recommendPage(HttpSession session,
                             Model model,
-                            @RequestParam(required = false) String msg,
-                            @RequestParam(required = false, defaultValue = "false") boolean useBias) {
+                            @RequestParam(required = false, defaultValue = "true") boolean useBias,
+                            @RequestParam(required = false) String msg) {
 
     User user = (User) session.getAttribute("user");
 
@@ -40,7 +40,6 @@ public String recommendPage(HttpSession session,
     model.addAttribute("recommendList", recommendList);
     model.addAttribute("username", user.getUsername());
     model.addAttribute("msg", msg);
-    model.addAttribute("useBias", useBias);
 
     return "recommend";
 }

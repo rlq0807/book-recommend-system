@@ -79,6 +79,10 @@ public class AdminRecommendController {
         Map<Integer, Double> kDataF1 = recommendService.topKExperimentF1(configService.getAlpha());
         List<Map<String, Object>> alphaBetaDataF1 = recommendService.alphaBetaExperimentF1(5);
 
+        Map<Double, Double> alphaDataNDCG = recommendService.alphaExperimentNDCG(5);
+        Map<Integer, Double> kDataNDCG = recommendService.topKExperimentNDCG(configService.getAlpha(), configService.getBeta());
+        List<Map<String, Object>> alphaBetaDataNDCG = recommendService.alphaBetaMatrixNDCG(5);
+
         model.addAttribute("alphaData", alphaData);
         model.addAttribute("kData", kData);
         model.addAttribute("alphaBetaData", alphaBetaData);
@@ -88,6 +92,9 @@ public class AdminRecommendController {
         model.addAttribute("alphaDataF1", alphaDataF1);
         model.addAttribute("kDataF1", kDataF1);
         model.addAttribute("alphaBetaDataF1", alphaBetaDataF1);
+        model.addAttribute("alphaDataNDCG", alphaDataNDCG);
+        model.addAttribute("kDataNDCG", kDataNDCG);
+        model.addAttribute("alphaBetaDataNDCG", alphaBetaDataNDCG);
         model.addAttribute("alpha", configService.getAlpha());
         model.addAttribute("beta", configService.getBeta());
         model.addAttribute("topN", configService.getTopN());

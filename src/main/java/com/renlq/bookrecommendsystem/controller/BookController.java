@@ -4,7 +4,7 @@ import com.renlq.bookrecommendsystem.entity.Book;
 import com.renlq.bookrecommendsystem.entity.User;
 import com.renlq.bookrecommendsystem.repository.BookRepository;
 import com.renlq.bookrecommendsystem.repository.RatingRepository;
-import com.renlq.bookrecommendsystem.repository.UserRepository;
+import com.renlq.bookrecommendsystem.repository.BorrowRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,6 +20,7 @@ public class BookController {
 
     private final BookRepository bookRepository;
     private final RatingRepository ratingRepository;
+    private final BorrowRecordRepository borrowRecordRepository;
 
     @GetMapping("/add")
     public String addBook(@RequestParam String name,
@@ -38,6 +39,8 @@ public class BookController {
     }
     @GetMapping("/{id}")
     public String bookDetail(@PathVariable Long id,
+                            @RequestParam(required = false) String msg,
+                            @RequestParam(required = false) String errorMsg,
                             Model model,
                             HttpSession session){
 
@@ -51,16 +54,28 @@ public class BookController {
                 .findById(id)
                 .orElse(null);
 
-        // ⭐ 加上评分逻辑
         Double avgScore = ratingRepository.getAverageScore(id);
 
         if(avgScore == null){
             avgScore = 0.0;
         }
 
+        int ratingCount = ratingRepository.findAll()
+                .stream()
+                .filter(r -> r.getBookId().equals(id))
+                .toList()
+                .size();
+
+        Long borrowCount = borrowRecordRepository.countByBookId(id);
+        long hotCount = borrowCount != null ? borrowCount : 0L;
+
         book.setAvgScore(avgScore);
+        book.setHotCount(hotCount);
 
         model.addAttribute("book",book);
+        model.addAttribute("ratingCount", ratingCount);
+        model.addAttribute("msg", msg);
+        model.addAttribute("errorMsg", errorMsg);
 
         return "bookDetail";
     }

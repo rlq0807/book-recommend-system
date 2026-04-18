@@ -24,8 +24,15 @@ public class User {
     @Getter
     private String email;
 
+    @Getter
+    private String preferredCategories;
+
     public void setEmail(String email) {
     this.email = email;
+}
+
+    public void setPreferredCategories(String preferredCategories) {
+    this.preferredCategories = preferredCategories;
 }
 
     public Long getId(){

@@ -82,6 +82,13 @@ public class BorrowController {
             recordList.add(map);
         }
 
+        // 按记录id降序排序
+        recordList.sort((a, b) -> {
+            BorrowRecord recordA = (BorrowRecord) a.get("record");
+            BorrowRecord recordB = (BorrowRecord) b.get("record");
+            return Long.compare(recordB.getId(), recordA.getId());
+        });
+
         model.addAttribute("records",recordList);
 
         return "borrowRecords";
@@ -100,18 +107,30 @@ public class BorrowController {
         }
 
         if (!borrowService.isAvailable(bookId)) {
+            if ("bookDetail".equals(from)) {
+                return "redirect:/book/" + bookId + "?msg=exist";
+            }
             return "redirect:/" + from + "?msg=exist";
         }
 
         String result = borrowService.borrowBook(user.getId(), bookId);
 
         if ("借阅成功".equals(result)) {
+            if ("bookDetail".equals(from)) {
+                return "redirect:/book/" + bookId + "?msg=success";
+            }
             return "redirect:/" + from + "?msg=success";
         } else {
             try {
                 String encodedErrorMsg = java.net.URLEncoder.encode(result, "UTF-8");
+                if ("bookDetail".equals(from)) {
+                    return "redirect:/book/" + bookId + "?msg=error&errorMsg=" + encodedErrorMsg;
+                }
                 return "redirect:/" + from + "?msg=error&errorMsg=" + encodedErrorMsg;
             } catch (java.io.UnsupportedEncodingException e) {
+                if ("bookDetail".equals(from)) {
+                    return "redirect:/book/" + bookId + "?msg=error&errorMsg=系统错误";
+                }
                 return "redirect:/" + from + "?msg=error&errorMsg=系统错误";
             }
         }

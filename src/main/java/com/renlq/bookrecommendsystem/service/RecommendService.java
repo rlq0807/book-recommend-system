@@ -3,9 +3,11 @@ package com.renlq.bookrecommendsystem.service;
 import com.renlq.bookrecommendsystem.entity.Book;
 import com.renlq.bookrecommendsystem.entity.Rating;
 import com.renlq.bookrecommendsystem.entity.RecommendationResult;
+import com.renlq.bookrecommendsystem.entity.User;
 import com.renlq.bookrecommendsystem.repository.BookRepository;
 import com.renlq.bookrecommendsystem.repository.BorrowRecordRepository;
 import com.renlq.bookrecommendsystem.repository.RatingRepository;
+import com.renlq.bookrecommendsystem.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +29,7 @@ public class RecommendService {
     private final BookRepository bookRepository;
     private final RatingRepository ratingRepository;
     private final BorrowRecordRepository borrowRecordRepository;
+    private final UserRepository userRepository;
 
     private volatile Map<Long, Map<Long, Integer>> userItemMapCache = null;
     private volatile Map<Long, Map<Long, Integer>> itemUserMapCache = null;
@@ -75,10 +78,16 @@ public class RecommendService {
     }
 
     private String getUserSimilarityKey(Long user1, Long user2) {
+        if (user1 == null || user2 == null) {
+            return null;
+        }
         return user1 < user2 ? user1 + "_" + user2 : user2 + "_" + user1;
     }
 
     private String getItemSimilarityKey(Long item1, Long item2) {
+        if (item1 == null || item2 == null) {
+            return null;
+        }
         return item1 < item2 ? item1 + "_" + item2 : item2 + "_" + item1;
     }
 
@@ -144,12 +153,162 @@ public class RecommendService {
         return bookRepository.findAllById(hotBookIds);
     }
 
+    private List<Book> getHighScoreBooks() {
+        Map<Long, Map<Long, Integer>> userItemMap = getUserItemMap();
+        Map<Long, Double> avgScoreMap = new HashMap<>();
+        Map<Long, Integer> ratingCountMap = new HashMap<>();
+
+        for (Map<Long, Integer> itemMap : userItemMap.values()) {
+            for (Map.Entry<Long, Integer> entry : itemMap.entrySet()) {
+                Long bookId = entry.getKey();
+                Integer score = entry.getValue();
+                avgScoreMap.merge(bookId, (double) score, Double::sum);
+                ratingCountMap.merge(bookId, 1, Integer::sum);
+            }
+        }
+
+        for (Map.Entry<Long, Double> entry : avgScoreMap.entrySet()) {
+            Long bookId = entry.getKey();
+            int count = ratingCountMap.get(bookId);
+            double avg = entry.getValue() / count;
+            avgScoreMap.put(bookId, avg - Math.log(1 + count) * 0.1);
+        }
+
+        List<Long> highScoreBookIds = avgScoreMap.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
+                .limit(10)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        return bookRepository.findAllById(highScoreBookIds);
+    }
+
+    private List<Book> mixHotAndHighScoreBooks() {
+        List<Book> hotBooks = getHotBooks();
+        List<Book> highScoreBooks = getHighScoreBooks();
+        List<Book> allBooks = bookRepository.findAll();
+
+        Set<Long> selectedIds = new HashSet<>();
+        List<Book> result = new ArrayList<>();
+
+        for (Book book : hotBooks) {
+            if (result.size() < 2 && selectedIds.add(book.getId())) {
+                result.add(book);
+            }
+        }
+
+        for (Book book : highScoreBooks) {
+            if (result.size() < 4 && selectedIds.add(book.getId())) {
+                result.add(book);
+            }
+        }
+
+        List<Book> remainingBooks = new ArrayList<>();
+        for (Book book : allBooks) {
+            if (!selectedIds.contains(book.getId())) {
+                remainingBooks.add(book);
+            }
+        }
+
+        Collections.shuffle(remainingBooks);
+        for (Book book : remainingBooks) {
+            if (result.size() < 5) {
+                result.add(book);
+            } else {
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    private List<String> getUserPreferredCategories(User user) {
+        if (user.getPreferredCategories() == null) {
+            return Collections.emptyList();
+        }
+        return Arrays.asList(user.getPreferredCategories().split(","));
+    }
+
+    private List<Book> recommendByCategory(User user) {
+        List<String> categories = getUserPreferredCategories(user);
+        if (categories.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Book> books = bookRepository.findByCategoryIn(categories);
+
+        // 排序：综合评分和热门度
+        books.sort((a, b) -> {
+            double scoreA = (a.getAvgScore() != null ? a.getAvgScore() : 0.0) + Math.log(1 + (a.getHotCount() != null ? a.getHotCount() : 0));
+            double scoreB = (b.getAvgScore() != null ? b.getAvgScore() : 0.0) + Math.log(1 + (b.getHotCount() != null ? b.getHotCount() : 0));
+            return Double.compare(scoreB, scoreA);
+        });
+
+        return books.stream().limit(5).collect(Collectors.toList());
+    }
+
+    private List<Book> hybridRecommendInternal(Long userId, boolean useBias) {
+        double alpha = configService.getAlpha();
+
+        Map<Long, Double> userMap = normalize(getUserCFScoreMap(userId));
+        if (userMap.isEmpty()) {
+            return mixHotAndHighScoreBooks();
+        }
+
+        Map<Long, Double> itemMap = normalize(getItemCFScoreMap(userId));
+        Map<Long, Double> biasMap = useBias ? normalize(getBiasAwareScoreMap(userId)) : new HashMap<>();
+
+        Map<Long, Double> finalScoreMap = new HashMap<>();
+
+        Set<Long> allBookIds = new HashSet<>();
+        allBookIds.addAll(userMap.keySet());
+        allBookIds.addAll(itemMap.keySet());
+        if (useBias) {
+            allBookIds.addAll(biasMap.keySet());
+        }
+
+        for (Long bookId : allBookIds) {
+            double userScore = userMap.getOrDefault(bookId, 0.0);
+            double itemScore = itemMap.getOrDefault(bookId, 0.0);
+            double biasScore = useBias ? biasMap.getOrDefault(bookId, 0.0) : 0.0;
+
+            double finalScore;
+            if (useBias) {
+                double beta = configService.getBeta();
+                finalScore = alpha * userScore + (1 - alpha - beta) * itemScore + beta * biasScore;
+            } else {
+                finalScore = alpha * userScore + (1 - alpha) * itemScore;
+            }
+
+            finalScoreMap.put(bookId, finalScore);
+        }
+
+        List<Long> topIds = finalScoreMap.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
+                .limit(5)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        logger.debug("UserCF: {}", userMap);
+        logger.debug("ItemCF: {}", itemMap);
+        if (useBias) {
+            logger.debug("BiasAware: {}", biasMap);
+        }
+
+        if (topIds.isEmpty()) {
+            logger.info("用户已评分所有书籍，无候选推荐。");
+            return mixHotAndHighScoreBooks();
+        }
+        logger.debug("alpha={}, useBias={}", alpha, useBias);
+        return bookRepository.findAllById(topIds);
+    }
+
     private double calculateSimilarity(Long userId1, Long userId2,
                                        Map<Long, Integer> user1,
                                        Map<Long, Integer> user2) {
 
         String key = getUserSimilarityKey(userId1, userId2);
-        if (userSimilarityCache.containsKey(key)) {
+        if (key != null && userSimilarityCache.containsKey(key)) {
             return userSimilarityCache.get(key);
         }
 
@@ -182,7 +341,9 @@ public class RecommendService {
         double confidencePenalty = commonSize / (commonSize + 10.0);
 
         double similarity = rawSimilarity * confidencePenalty;
-        userSimilarityCache.put(key, similarity);
+        if (key != null) {
+            userSimilarityCache.put(key, similarity);
+        }
         return similarity;
     }
 
@@ -308,12 +469,10 @@ public class RecommendService {
                         userItemMap.get(otherUserId)
                 );
 
-                if (similarity > 0) {
-                    double otherUserAvg = userAverageMap.get(otherUserId);
-                    double adjustedRating = entry.getValue() - otherUserAvg;
-                    score += similarity * adjustedRating;
-                    count++;
-                }
+                double otherUserAvg = userAverageMap.get(otherUserId);
+                double adjustedRating = entry.getValue() - otherUserAvg;
+                score += similarity * adjustedRating;
+                count++;
             }
 
             if (count > 0) {
@@ -364,12 +523,10 @@ public class RecommendService {
                         userItemMap.get(otherUserId)
                 );
 
-                if (similarity > 0) {
-                    double otherUserAvg = userAverageMap.get(otherUserId);
-                    double adjustedRating = entry.getValue() - otherUserAvg;
-                    score += similarity * adjustedRating;
-                    count++;
-                }
+                double otherUserAvg = userAverageMap.get(otherUserId);
+                double adjustedRating = entry.getValue() - otherUserAvg;
+                score += similarity * adjustedRating;
+                count++;
             }
 
             if (count > 0) {
@@ -389,7 +546,7 @@ public class RecommendService {
                                            Map<Long, Integer> item2) {
 
         String key = getItemSimilarityKey(itemId1, itemId2);
-        if (itemSimilarityCache.containsKey(key)) {
+        if (key != null && itemSimilarityCache.containsKey(key)) {
             return itemSimilarityCache.get(key);
         }
 
@@ -422,7 +579,9 @@ public class RecommendService {
         double confidencePenalty = commonSize / (commonSize + 10.0);
 
         double similarity = rawSimilarity * confidencePenalty;
-        itemSimilarityCache.put(key, similarity);
+        if (key != null) {
+            itemSimilarityCache.put(key, similarity);
+        }
         return similarity;
     }
 
@@ -455,9 +614,8 @@ public class RecommendService {
                     userItemMap.get(otherUserId)
             );
 
-            if (similarity > 0) {
-                similarityMap.put(otherUserId, similarity);
-            }
+            // 保留所有相似度，包括负相似度
+            similarityMap.put(otherUserId, similarity);
         }
 
         List<Long> topUsers = similarityMap.entrySet().stream()
@@ -512,9 +670,8 @@ public class RecommendService {
                     userItemMap.get(otherUserId)
             );
 
-            if (similarity > 0) {
-                similarityMap.put(otherUserId, similarity);
-            }
+            // 保留所有相似度，包括负相似度
+            similarityMap.put(otherUserId, similarity);
         }
 
         List<Long> topUsers = similarityMap.entrySet().stream()
@@ -573,7 +730,8 @@ public class RecommendService {
                         itemUserMap.get(otherBookId)
                 );
 
-                if (similarity <= 0) continue;
+                // 保留所有相似度，包括负相似度
+                // if (similarity <= 0) continue;
 
                 scoreMap.merge(
                         otherBookId,
@@ -611,7 +769,8 @@ public class RecommendService {
                         itemUserMap.get(otherBookId)
                 );
 
-                if (similarity <= 0) continue;
+                // 保留所有相似度，包括负相似度
+                // if (similarity <= 0) continue;
 
                 scoreMap.merge(
                         otherBookId,
@@ -655,61 +814,25 @@ public class RecommendService {
     }
 
     public List<Book> hybridRecommend(Long userId, boolean useBias) {
+        User user = userRepository.findById(userId).orElse(null);
+        Map<Long, Map<Long, Integer>> userItemMap = getUserItemMap();
+        Map<Long, Integer> ratings = userItemMap.get(userId);
 
-        double alpha = configService.getAlpha();
-
-        Map<Long, Double> userMap = normalize(getUserCFScoreMap(userId));
-        if (userMap.isEmpty()) {
-            return getHotBooks();
-        }
-
-        Map<Long, Double> itemMap = normalize(getItemCFScoreMap(userId));
-        Map<Long, Double> biasMap = useBias ? normalize(getBiasAwareScoreMap(userId)) : new HashMap<>();
-
-        Map<Long, Double> finalScoreMap = new HashMap<>();
-
-        Set<Long> allBookIds = new HashSet<>();
-        allBookIds.addAll(userMap.keySet());
-        allBookIds.addAll(itemMap.keySet());
-        if (useBias) {
-            allBookIds.addAll(biasMap.keySet());
-        }
-
-        for (Long bookId : allBookIds) {
-
-            double userScore = userMap.getOrDefault(bookId, 0.0);
-            double itemScore = itemMap.getOrDefault(bookId, 0.0);
-            double biasScore = useBias ? biasMap.getOrDefault(bookId, 0.0) : 0.0;
-
-            double finalScore;
-            if (useBias) {
-                double beta = configService.getBeta();
-                finalScore = alpha * userScore + (1 - alpha - beta) * itemScore + beta * biasScore;
-            } else {
-                finalScore = alpha * userScore + (1 - alpha) * itemScore;
+        // 冷启动判断
+        if (ratings == null || ratings.size() < 3) {
+            // 优先：分类推荐
+            List<Book> categoryBooks = recommendByCategory(user);
+            if (!categoryBooks.isEmpty()) {
+                logger.info("用户 {} 使用分类偏好推荐，评分数量：{}", userId, ratings != null ? ratings.size() : 0);
+                return categoryBooks;
             }
-
-            finalScoreMap.put(bookId, finalScore);
+            // 次级：热门推荐
+            logger.info("用户 {} 使用热门推荐，评分数量：{}", userId, ratings != null ? ratings.size() : 0);
+            return mixHotAndHighScoreBooks();
         }
 
-        List<Long> topIds = finalScoreMap.entrySet().stream()
-                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
-                .limit(5)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-        logger.debug("UserCF: {}", userMap);
-        logger.debug("ItemCF: {}", itemMap);
-        if (useBias) {
-            logger.debug("BiasAware: {}", biasMap);
-        }
-
-        if (topIds.isEmpty()) {
-            logger.info("用户已评分所有书籍，无候选推荐。");
-            return getHotBooks();
-        }
-        logger.debug("alpha={}, useBias={}", alpha, useBias);
-        return bookRepository.findAllById(topIds);
+        // 原有逻辑
+        return hybridRecommendInternal(userId, useBias);
     }
 
 
@@ -772,17 +895,20 @@ public class RecommendService {
         List<Rating> userRatings = ratingRepository.findAll()
                 .stream()
                 .filter(r -> r.getUserId().equals(userId))
+                .sorted(Comparator.comparing(Rating::getCreateTime)) // 按时间排序
                 .collect(Collectors.toList());
 
         if (userRatings.size() < 2) {
             return 0.0;
         }
 
-        Collections.shuffle(userRatings);
-
-        int splitIndex = userRatings.size() / 2;
-        List<Rating> testSet = userRatings.subList(0, splitIndex);
-        List<Rating> trainSet = userRatings.subList(splitIndex, userRatings.size());
+        // 时间切分：前80%作为训练集，后20%作为测试集
+        int splitIndex = (int) (userRatings.size() * 0.8);
+        if (splitIndex >= userRatings.size() - 1) {
+            splitIndex = userRatings.size() - 1; // 确保测试集至少有1条记录
+        }
+        List<Rating> trainSet = userRatings.subList(0, splitIndex);
+        List<Rating> testSet = userRatings.subList(splitIndex, userRatings.size());
 
         List<Rating> allRatings = new ArrayList<>();
         for (Rating r : ratingRepository.findAll()) {
@@ -812,17 +938,20 @@ public class RecommendService {
         List<Rating> userRatings = ratingRepository.findAll()
                 .stream()
                 .filter(r -> r.getUserId().equals(userId))
+                .sorted(Comparator.comparing(Rating::getCreateTime)) // 按时间排序
                 .collect(Collectors.toList());
 
         if (userRatings.size() < 2) {
             return 0.0;
         }
 
-        Collections.shuffle(userRatings);
-
-        int splitIndex = userRatings.size() / 2;
-        List<Rating> testSet = userRatings.subList(0, splitIndex);
-        List<Rating> trainSet = userRatings.subList(splitIndex, userRatings.size());
+        // 时间切分：前80%作为训练集，后20%作为测试集
+        int splitIndex = (int) (userRatings.size() * 0.8);
+        if (splitIndex >= userRatings.size() - 1) {
+            splitIndex = userRatings.size() - 1; // 确保测试集至少有1条记录
+        }
+        List<Rating> trainSet = userRatings.subList(0, splitIndex);
+        List<Rating> testSet = userRatings.subList(splitIndex, userRatings.size());
 
         List<Rating> allRatings = new ArrayList<>();
         for (Rating r : ratingRepository.findAll()) {
@@ -852,17 +981,20 @@ public class RecommendService {
         List<Rating> userRatings = ratingRepository.findAll()
                 .stream()
                 .filter(r -> r.getUserId().equals(userId))
+                .sorted(Comparator.comparing(Rating::getCreateTime)) // 按时间排序
                 .collect(Collectors.toList());
 
         if (userRatings.size() < 2) {
             return 0.0;
         }
 
-        Collections.shuffle(userRatings);
-
-        int splitIndex = userRatings.size() / 2;
-        List<Rating> testSet = userRatings.subList(0, splitIndex);
-        List<Rating> trainSet = userRatings.subList(splitIndex, userRatings.size());
+        // 时间切分：前80%作为训练集，后20%作为测试集
+        int splitIndex = (int) (userRatings.size() * 0.8);
+        if (splitIndex >= userRatings.size() - 1) {
+            splitIndex = userRatings.size() - 1; // 确保测试集至少有1条记录
+        }
+        List<Rating> trainSet = userRatings.subList(0, splitIndex);
+        List<Rating> testSet = userRatings.subList(splitIndex, userRatings.size());
 
         List<Rating> allRatings = new ArrayList<>();
         for (Rating r : ratingRepository.findAll()) {
@@ -892,17 +1024,20 @@ public class RecommendService {
         List<Rating> userRatings = ratingRepository.findAll()
                 .stream()
                 .filter(r -> r.getUserId().equals(userId))
+                .sorted(Comparator.comparing(Rating::getCreateTime)) // 按时间排序
                 .collect(Collectors.toList());
 
         if (userRatings.size() < 2) {
             return 0.0;
         }
 
-        Collections.shuffle(userRatings);
-
-        int splitIndex = userRatings.size() / 2;
-        List<Rating> testSet = userRatings.subList(0, splitIndex);
-        List<Rating> trainSet = userRatings.subList(splitIndex, userRatings.size());
+        // 时间切分：前80%作为训练集，后20%作为测试集
+        int splitIndex = (int) (userRatings.size() * 0.8);
+        if (splitIndex >= userRatings.size() - 1) {
+            splitIndex = userRatings.size() - 1; // 确保测试集至少有1条记录
+        }
+        List<Rating> trainSet = userRatings.subList(0, splitIndex);
+        List<Rating> testSet = userRatings.subList(splitIndex, userRatings.size());
 
         List<Rating> allRatings = new ArrayList<>();
         for (Rating r : ratingRepository.findAll()) {
@@ -960,6 +1095,100 @@ public class RecommendService {
     public double f1Score(double precision, double recall) {
         if (precision + recall == 0) return 0.0;
         return 2 * precision * recall / (precision + recall);
+    }
+
+    public double ndcgAtK(Long userId, int k, double alpha) {
+        return ndcgAtK(userId, k, alpha, 0.0);
+    }
+
+    public double ndcgAtK(Long userId, int k, double alpha, double beta) {
+        List<Rating> userRatings = ratingRepository.findAll()
+                .stream()
+                .filter(r -> r.getUserId().equals(userId))
+                .sorted(Comparator.comparing(Rating::getCreateTime)) // 按时间排序
+                .collect(Collectors.toList());
+
+        if (userRatings.size() < 2) {
+            return 0.0;
+        }
+
+        // 时间切分：前80%作为训练集，后20%作为测试集
+        int splitIndex = (int) (userRatings.size() * 0.8);
+        if (splitIndex >= userRatings.size() - 1) {
+            splitIndex = userRatings.size() - 1; // 确保测试集至少有1条记录
+        }
+        List<Rating> trainSet = userRatings.subList(0, splitIndex);
+        List<Rating> testSet = userRatings.subList(splitIndex, userRatings.size());
+
+        List<Rating> allRatings = new ArrayList<>();
+        for (Rating r : ratingRepository.findAll()) {
+            if (!r.getUserId().equals(userId)) {
+                allRatings.add(r);
+            }
+        }
+        allRatings.addAll(trainSet);
+
+        List<Book> recommendedBooks;
+        if (beta > 0) {
+            recommendedBooks = hybridRecommendWithCustomRatings(userId, allRatings, alpha, true, beta);
+        } else {
+            recommendedBooks = hybridRecommendWithCustomRatings(userId, allRatings, alpha);
+        }
+
+        List<Long> topK = recommendedBooks.stream()
+                .limit(k)
+                .map(Book::getId)
+                .collect(Collectors.toList());
+
+        // 计算DCG
+        double dcg = 0.0;
+        Map<Long, Integer> testRatingsMap = new HashMap<>();
+        for (Rating r : testSet) {
+            testRatingsMap.put(r.getBookId(), r.getScore());
+        }
+
+        for (int i = 0; i < topK.size(); i++) {
+            Long bookId = topK.get(i);
+            if (testRatingsMap.containsKey(bookId)) {
+                int rel = testRatingsMap.get(bookId);
+                dcg += rel / Math.log(i + 2) / Math.log(2); // log2(i+1)
+            }
+        }
+
+        // 计算IDCG（理想DCG）
+        List<Integer> testScores = testSet.stream()
+                .map(Rating::getScore)
+                .sorted(Comparator.reverseOrder())
+                .collect(Collectors.toList());
+
+        double idcg = 0.0;
+        for (int i = 0; i < Math.min(k, testScores.size()); i++) {
+            idcg += testScores.get(i) / Math.log(i + 2) / Math.log(2);
+        }
+
+        return idcg == 0 ? 0.0 : dcg / idcg;
+    }
+
+    public double evaluateNdcgAllUsers(int k, double alpha) {
+        return evaluateNdcgAllUsers(k, alpha, 0.0);
+    }
+
+    public double evaluateNdcgAllUsers(int k, double alpha, double beta) {
+        Set<Long> userIds = ratingRepository.findAll()
+                .stream()
+                .map(Rating::getUserId)
+                .collect(Collectors.toSet());
+
+        double total = 0.0;
+        int count = 0;
+
+        for (Long userId : userIds) {
+            double ndcg = ndcgAtK(userId, k, alpha, beta);
+            total += ndcg;
+            count++;
+        }
+
+        return count == 0 ? 0.0 : total / count;
     }
 
     public Map<Double, Double> alphaExperimentF1(int k) {
@@ -1088,11 +1317,95 @@ public class RecommendService {
         return hybridRecommendWithCustomRatings(userId, ratings, alpha, useBias, configService.getBeta());
     }
 
+    public Map<Double, Double> alphaExperimentNDCG(int k) {
+
+        Map<Double, Double> result = new LinkedHashMap<>();
+
+        for (double alpha = 0.0; alpha <= 1.0; alpha += 0.1) {
+            double ndcg = evaluateNdcgAllUsers(k, alpha);
+            result.put(alpha, ndcg);
+        }
+
+        return result;
+    }
+
+    public Map<Integer, Double> topKExperimentNDCG(double alpha, double beta) {
+
+        Map<Integer, Double> result = new LinkedHashMap<>();
+
+        for (int k = 1; k <= 10; k++) {
+            double ndcg = evaluateNdcgAllUsers(k, alpha, beta);
+            result.put(k, ndcg);
+        }
+
+        return result;
+    }
+
+    public Map<Double, Map<Double, Double>> alphaBetaExperimentNDCG(int k) {
+
+        Map<Double, Map<Double, Double>> result = new LinkedHashMap<>();
+
+        for (double alpha = 0.0; alpha <= 1.0; alpha += 0.2) {
+            Map<Double, Double> betaMap = new LinkedHashMap<>();
+            for (double beta = 0.0; beta <= 1.0 - alpha; beta += 0.2) {
+                double ndcg = evaluateNdcgAllUsers(k, alpha, beta);
+                betaMap.put(beta, ndcg);
+            }
+            result.put(alpha, betaMap);
+        }
+
+        return result;
+    }
+
+    public List<Map<String, Object>> alphaBetaMatrixNDCG(int k) {
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        // 使用整数迭代来避免浮点数精度问题
+        for (int i = 0; i <= 5; i++) {
+            double alpha = i * 0.2;
+            double a = Math.round(alpha * 10) / 10.0;
+            
+            for (int j = 0; j <= 5 - i; j++) {
+                double beta = j * 0.2;
+                double b = Math.round(beta * 10) / 10.0;
+                
+                Map<String, Object> item = new HashMap<>();
+                item.put("alpha", a);
+                item.put("beta", b);
+                item.put("ndcg", evaluateNdcgAllUsers(k, a, b));
+                result.add(item);
+                logger.debug("alpha={}, beta={}, ndcg={}", a, b, evaluateNdcgAllUsers(k, a, b));
+            }
+        }
+
+        return result;
+    }
+
+    public Map<String, Double> algorithmComparisonNDCG(int k) {
+
+        Map<String, Double> result = new LinkedHashMap<>();
+
+        double ndcgUserCF = evaluateNdcgAllUsers(k, 1.0, 0.0);
+        result.put("UserCF", ndcgUserCF);
+
+        double ndcgItemCF = evaluateNdcgAllUsers(k, 0.0, 0.0);
+        result.put("ItemCF", ndcgItemCF);
+
+        double ndcgUserItemCF = evaluateNdcgAllUsers(k, 0.5, 0.0);
+        result.put("UserCF+ItemCF", ndcgUserItemCF);
+
+        double ndcgHybrid = evaluateNdcgAllUsers(k, 0.2, 0.2);
+        result.put("Hybrid (User+Item+Bias)", ndcgHybrid);
+
+        return result;
+    }
+
     private List<Book> hybridRecommendWithCustomRatings(Long userId, List<Rating> ratings, double alpha, boolean useBias, double beta) {
 
         Map<Long, Double> userMap = normalize(getUserCFScoreMap(userId, ratings));
         if (userMap.isEmpty()) {
-            return getHotBooks();
+            return mixHotAndHighScoreBooks();
         }
 
         Map<Long, Double> itemMap = normalize(getItemCFScoreMap(userId, ratings));
@@ -1137,7 +1450,7 @@ public class RecommendService {
 
         if (topIds.isEmpty()) {
             logger.info("用户已评分所有书籍，无候选推荐。");
-            return getHotBooks();
+            return mixHotAndHighScoreBooks();
         }
         return bookRepository.findAllById(topIds);
     }
@@ -1553,6 +1866,66 @@ public void generateAllReports() throws Exception {
             "AlgorithmComparisonF1",
             algorithmDataF1,
             basePath + "algorithm_f1.xlsx"
+    );
+
+    Map<Double, Double> alphaDataNDCG = alphaExperimentNDCG(5);
+    Map<Integer, Double> kDataNDCG = topKExperimentNDCG(configService.getAlpha(), configService.getBeta());
+    List<Map<String, Object>> alphaBetaDataNDCG = alphaBetaMatrixNDCG(5);
+
+    com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
+            "Alpha Experiment (NDCG)",
+            "Alpha",
+            "NDCG@5",
+            alphaDataNDCG,
+            basePath + "alpha_ndcg_chart.png"
+    );
+
+    com.renlq.bookrecommendsystem.util.ExperimentUtil.exportExcel(
+            "AlphaExperimentNDCG",
+            alphaDataNDCG,
+            basePath + "alpha_ndcg.xlsx"
+    );
+
+    com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
+            "TopK Experiment (NDCG)",
+            "K",
+            "NDCG@K",
+            kDataNDCG,
+            basePath + "topk_ndcg_chart.png"
+    );
+
+    com.renlq.bookrecommendsystem.util.ExperimentUtil.exportExcel(
+            "TopKExperimentNDCG",
+            kDataNDCG,
+            basePath + "topk_ndcg.xlsx"
+    );
+
+    com.renlq.bookrecommendsystem.util.ExperimentUtil.exportAlphaBetaExcel(
+            "AlphaBetaExperimentNDCG",
+            alphaBetaDataNDCG,
+            basePath + "alpha_beta_ndcg.xlsx"
+    );
+
+    Map<Double, Map<Double, Double>> heatmapDataNDCG = alphaBetaExperimentNDCG(5);
+    com.renlq.bookrecommendsystem.util.ExperimentUtil.generateHeatMap(
+            "Alpha-Beta Heatmap (NDCG)",
+            heatmapDataNDCG,
+            basePath + "alpha_beta_ndcg_heatmap.png"
+    );
+
+    Map<String, Double> algorithmDataNDCG = algorithmComparisonNDCG(5);
+    com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
+            "Algorithm Comparison (NDCG)",
+            "Algorithm",
+            "NDCG@5",
+            algorithmDataNDCG,
+            basePath + "algorithm_ndcg_chart.png"
+    );
+
+    com.renlq.bookrecommendsystem.util.ExperimentUtil.exportExcel(
+            "AlgorithmComparisonNDCG",
+            algorithmDataNDCG,
+            basePath + "algorithm_ndcg.xlsx"
     );
 
     logger.info("实验报告生成完成！");

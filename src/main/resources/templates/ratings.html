@@ -28,6 +28,43 @@ border-radius:10px;
 
 <a href="/home" class="btn btn-dark mb-4">返回主页</a>
 
+<!-- 待评分 -->
+<h4>待评分（已归还）</h4>
+
+<div th:if="${#lists.isEmpty(toRateList)}" class="text-muted">
+暂无待评分书籍
+</div>
+
+<div th:each="book : ${toRateList}" class="card p-3">
+
+<div class="d-flex justify-content-between align-items-center">
+
+<div>
+<b th:text="${book.name}"></b>
+</div>
+
+<form th:action="@{/rating/rate}" method="post">
+
+<input type="hidden" name="bookId" th:value="${book.id}">
+
+<select name="score" class="form-select form-select-sm d-inline w-auto">
+<option value="5">★★★★★ 5</option>
+<option value="4">★★★★ 4</option>
+<option value="3">★★★ 3</option>
+<option value="2">★★ 2</option>
+<option value="1">★ 1</option>
+</select>
+
+<button class="btn btn-success btn-sm">提交评分</button>
+
+</form>
+
+</div>
+
+</div>
+
+<hr>
+
 <!-- 已评分 -->
 <h4>已评分</h4>
 
@@ -59,43 +96,6 @@ border-radius:10px;
 </select>
 
 <button class="btn btn-warning btn-sm">修改评分</button>
-
-</form>
-
-</div>
-
-</div>
-
-<hr>
-
-<!-- 待评分 -->
-<h4>待评分（已归还）</h4>
-
-<div th:if="${#lists.isEmpty(toRateList)}" class="text-muted">
-暂无待评分书籍
-</div>
-
-<div th:each="book : ${toRateList}" class="card p-3">
-
-<div class="d-flex justify-content-between align-items-center">
-
-<div>
-<b th:text="${book.name}"></b>
-</div>
-
-<form th:action="@{/rating/rate}" method="post">
-
-<input type="hidden" name="bookId" th:value="${book.id}">
-
-<select name="score" class="form-select form-select-sm d-inline w-auto">
-<option value="5">★★★★★ 5</option>
-<option value="4">★★★★ 4</option>
-<option value="3">★★★ 3</option>
-<option value="2">★★ 2</option>
-<option value="1">★ 1</option>
-</select>
-
-<button class="btn btn-success btn-sm">提交评分</button>
 
 </form>
 

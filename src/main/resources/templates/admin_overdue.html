@@ -16,7 +16,9 @@
 
 <tr>
 <th>用户ID</th>
+<th>用户名</th>
 <th>图书ID</th>
+<th>图书名</th>
 <th>借阅时间</th>
 <th>截止时间</th>
 <th>已逾期天数</th>
@@ -25,7 +27,9 @@
 <tr th:each="r : ${records}">
 
 <td th:text="${r.userId}"></td>
+<td th:text="${userMap[r.userId]?.username ?: '未知'}"></td>
 <td th:text="${r.bookId}"></td>
+<td th:text="${bookMap[r.bookId]?.name ?: '未知'}"></td>
 <td th:text="${#temporals.format(r.borrowTime, 'yyyy-MM-dd HH:mm')}"></td>
 <td th:text="${#temporals.format(r.dueTime, 'yyyy-MM-dd HH:mm')}"></td>
 

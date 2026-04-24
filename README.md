@@ -53,7 +53,7 @@
    
    ```
    git clone https://github.com/
-   yourusername/
+   rlq0807/
    book-recommend-system.git
    cd book-recommend-system
    ```

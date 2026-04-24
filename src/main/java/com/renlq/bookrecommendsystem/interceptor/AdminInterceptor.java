@@ -20,7 +20,13 @@ public class AdminInterceptor implements HandlerInterceptor {
         User user = (User) session.getAttribute("user");
 
         if (user == null || !"administer".equals(user.getRole())) {
-            response.sendRedirect("/login");
+            response.setContentType("text/html;charset=UTF-8");
+            if (user == null) {
+                response.getWriter().write("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>提示</title></head><body><script type=\"text/javascript\">alert('请先登录！');window.location.href='/login';</script></body></html>");
+            } else {
+                response.getWriter().write("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>提示</title></head><body><script type=\"text/javascript\">alert('您没有管理员权限！');window.location.href='/home';</script></body></html>");
+            }
+            response.getWriter().flush();
             return false;
         }
 

@@ -1298,12 +1298,12 @@ public class RecommendService {
         double recallItemCF = evaluateRecallAllUsers(k, 0.0, 0.0);
         result.put("ItemCF", f1Score(precisionItemCF, recallItemCF));
 
-        double precisionUserItemCF = evaluateAllUsers(k, 0.5, 0.0);
-        double recallUserItemCF = evaluateRecallAllUsers(k, 0.5, 0.0);
+        double precisionUserItemCF = evaluateAllUsers(k, 0.8, 0.0);
+        double recallUserItemCF = evaluateRecallAllUsers(k, 0.8, 0.0);
         result.put("UserCF+ItemCF", f1Score(precisionUserItemCF, recallUserItemCF));
 
-        double precisionHybrid = evaluateAllUsers(k, 0.2, 0.2);
-        double recallHybrid = evaluateRecallAllUsers(k, 0.2, 0.2);
+        double precisionHybrid = evaluateAllUsers(k, 0.4, 0.4);
+        double recallHybrid = evaluateRecallAllUsers(k, 0.4, 0.4);
         result.put("Hybrid (User+Item+Bias)", f1Score(precisionHybrid, recallHybrid));
 
         return result;
@@ -1392,10 +1392,10 @@ public class RecommendService {
         double ndcgItemCF = evaluateNdcgAllUsers(k, 0.0, 0.0);
         result.put("ItemCF", ndcgItemCF);
 
-        double ndcgUserItemCF = evaluateNdcgAllUsers(k, 0.5, 0.0);
+        double ndcgUserItemCF = evaluateNdcgAllUsers(k, 0.8, 0.0);
         result.put("UserCF+ItemCF", ndcgUserItemCF);
 
-        double ndcgHybrid = evaluateNdcgAllUsers(k, 0.2, 0.2);
+        double ndcgHybrid = evaluateNdcgAllUsers(k, 0.4, 0.4);
         result.put("Hybrid (User+Item+Bias)", ndcgHybrid);
 
         return result;
@@ -1551,9 +1551,9 @@ public class RecommendService {
 
         result.put("ItemCF", evaluateAllUsers(k, 0.0, 0.0));
 
-        result.put("UserCF+ItemCF", evaluateAllUsers(k, 0.5, 0.0));
+        result.put("UserCF+ItemCF", evaluateAllUsers(k, 0.8, 0.0));
 
-        result.put("Hybrid (User+Item+Bias)", evaluateAllUsers(k, 0.2, 0.2));
+        result.put("Hybrid (User+Item+Bias)", evaluateAllUsers(k, 0.4, 0.4));
 
         return result;
     }
@@ -1653,9 +1653,9 @@ public class RecommendService {
 
         result.put("ItemCF", evaluateRecallAllUsers(k, 0.0, 0.0));
 
-        result.put("UserCF+ItemCF", evaluateRecallAllUsers(k, 0.5, 0.0));
+        result.put("UserCF+ItemCF", evaluateRecallAllUsers(k, 0.8, 0.0));
 
-        result.put("Hybrid (User+Item+Bias)", evaluateRecallAllUsers(k, 0.2, 0.2));
+        result.put("Hybrid (User+Item+Bias)", evaluateRecallAllUsers(k, 0.4, 0.4));
 
         return result;
     }
@@ -1679,9 +1679,9 @@ public void generateAllReports() throws Exception {
     new File(basePath).mkdirs();
 
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "Alpha Experiment",
-            "Alpha",
-            "Precision@5",
+            "融合权重实验（准确率）",
+            "α值",
+            "准确率",
             alphaData,
             basePath + "alpha_chart.png"
     );
@@ -1695,9 +1695,9 @@ public void generateAllReports() throws Exception {
 
 
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "TopK Experiment",
-            "K",
-            "Precision@K",
+            "推荐列表长度实验（准确率）",
+            "K值",
+            "准确率",
             kData,
             basePath + "topk_chart.png"
     );
@@ -1718,16 +1718,16 @@ public void generateAllReports() throws Exception {
 
     Map<Double, Map<Double, Double>> heatmapData = alphaBetaMatrix(5);
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateHeatMap(
-            "Alpha-Beta Heatmap",
+            "α-β双参数融合热力图（准确率）",
             heatmapData,
             basePath + "alpha_beta_heatmap.png"
     );
 
     Map<String, Double> algorithmData = algorithmComparison(5);
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "Algorithm Comparison",
-            "Algorithm",
-            "Precision@5",
+            "算法对比实验（准确率）",
+            "算法",
+            "准确率",
             algorithmData,
             basePath + "algorithm_chart.png"
     );
@@ -1748,9 +1748,9 @@ public void generateAllReports() throws Exception {
             alphaBetaExperimentRecall(5);
 
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "Alpha Experiment (Recall)",
-            "Alpha",
-            "Recall@5",
+            "融合权重实验（召回率）",
+            "α值",
+            "召回率",
             alphaDataRecall,
             basePath + "alpha_recall_chart.png"
     );
@@ -1762,9 +1762,9 @@ public void generateAllReports() throws Exception {
     );
 
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "TopK Experiment (Recall)",
-            "K",
-            "Recall@K",
+            "推荐列表长度实验（召回率）",
+            "K值",
+            "召回率",
             kDataRecall,
             basePath + "topk_recall_chart.png"
     );
@@ -1783,16 +1783,16 @@ public void generateAllReports() throws Exception {
 
     Map<Double, Map<Double, Double>> heatmapDataRecall = alphaBetaMatrixRecall(5);
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateHeatMap(
-            "Alpha-Beta Heatmap (Recall)",
+            "α-β双参数融合热力图（召回率）",
             heatmapDataRecall,
             basePath + "alpha_beta_recall_heatmap.png"
     );
 
     Map<String, Double> algorithmDataRecall = algorithmComparisonRecall(5);
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "Algorithm Comparison (Recall)",
-            "Algorithm",
-            "Recall@5",
+            "算法对比实验（召回率）",
+            "算法",
+            "召回率",
             algorithmDataRecall,
             basePath + "algorithm_recall_chart.png"
     );
@@ -1813,9 +1813,9 @@ public void generateAllReports() throws Exception {
             alphaBetaExperimentF1(5);
 
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "Alpha Experiment (F1)",
-            "Alpha",
-            "F1@5",
+            "融合权重实验（F1值）",
+            "α值",
+            "F1值",
             alphaDataF1,
             basePath + "alpha_f1_chart.png"
     );
@@ -1827,9 +1827,9 @@ public void generateAllReports() throws Exception {
     );
 
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "TopK Experiment (F1)",
-            "K",
-            "F1@K",
+            "推荐列表长度实验（F1值）",
+            "K值",
+            "F1值",
             kDataF1,
             basePath + "topk_f1_chart.png"
     );
@@ -1848,16 +1848,16 @@ public void generateAllReports() throws Exception {
 
     Map<Double, Map<Double, Double>> heatmapDataF1 = alphaBetaMatrixF1(5);
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateHeatMap(
-            "Alpha-Beta Heatmap (F1)",
+            "α-β双参数融合热力图（F1值）",
             heatmapDataF1,
             basePath + "alpha_beta_f1_heatmap.png"
     );
 
     Map<String, Double> algorithmDataF1 = algorithmComparisonF1(5);
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "Algorithm Comparison (F1)",
-            "Algorithm",
-            "F1@5",
+            "算法对比实验（F1值）",
+            "算法",
+            "F1值",
             algorithmDataF1,
             basePath + "algorithm_f1_chart.png"
     );
@@ -1873,9 +1873,9 @@ public void generateAllReports() throws Exception {
     List<Map<String, Object>> alphaBetaDataNDCG = alphaBetaMatrixNDCG(5);
 
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "Alpha Experiment (NDCG)",
-            "Alpha",
-            "NDCG@5",
+            "融合权重实验（归一化折损累计增益）",
+            "α值",
+            "归一化折损累计增益值",
             alphaDataNDCG,
             basePath + "alpha_ndcg_chart.png"
     );
@@ -1887,9 +1887,9 @@ public void generateAllReports() throws Exception {
     );
 
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "TopK Experiment (NDCG)",
-            "K",
-            "NDCG@K",
+            "推荐列表长度实验（归一化折损累计增益）",
+            "K值",
+            "归一化折损累计增益值",
             kDataNDCG,
             basePath + "topk_ndcg_chart.png"
     );
@@ -1908,16 +1908,16 @@ public void generateAllReports() throws Exception {
 
     Map<Double, Map<Double, Double>> heatmapDataNDCG = alphaBetaExperimentNDCG(5);
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateHeatMap(
-            "Alpha-Beta Heatmap (NDCG)",
+            "α-β双参数融合热力图（归一化折损累计增益）",
             heatmapDataNDCG,
             basePath + "alpha_beta_ndcg_heatmap.png"
     );
 
     Map<String, Double> algorithmDataNDCG = algorithmComparisonNDCG(5);
     com.renlq.bookrecommendsystem.util.ExperimentUtil.generateChart(
-            "Algorithm Comparison (NDCG)",
-            "Algorithm",
-            "NDCG@5",
+            "算法对比实验（归一化折损累计增益）",
+            "算法",
+            "归一化折损累计增益值",
             algorithmDataNDCG,
             basePath + "algorithm_ndcg_chart.png"
     );

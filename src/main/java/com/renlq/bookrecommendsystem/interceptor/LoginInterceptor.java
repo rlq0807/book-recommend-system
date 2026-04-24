@@ -19,7 +19,9 @@ public class LoginInterceptor implements HandlerInterceptor {
         Object user = session.getAttribute("user");
 
         if (user == null) {
-            response.sendRedirect("/login");
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().write("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>提示</title></head><body><script type=\"text/javascript\">alert('请先登录！');window.location.href='/login';</script></body></html>");
+            response.getWriter().flush();
             return false;
         }
 

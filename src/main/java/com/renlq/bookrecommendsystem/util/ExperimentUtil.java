@@ -9,6 +9,7 @@ import org.jfree.chart.renderer.category.LineAndShapeRenderer;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.title.TextTitle;
+import org.jfree.chart.title.LegendTitle;
 import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.xy.DefaultXYZDataset;
 import org.jfree.chart.plot.XYPlot;
@@ -44,7 +45,7 @@ public class ExperimentUtil {
 
             dataset.addValue(
                     entry.getValue(),
-                    "Metric",
+                    "指标值",
                     entry.getKey().toString()
             );
         }
@@ -87,6 +88,12 @@ public class ExperimentUtil {
         yAxis.setTickLabelFont(tickFont);
 
         renderer.setDefaultItemLabelFont(itemLabelFont);
+
+        // 设置图例字体，确保中文显示
+        LegendTitle legend = chart.getLegend();
+        if (legend != null) {
+            legend.setItemFont(itemLabelFont);
+        }
 
         ChartUtils.saveChartAsPNG(
                 new File(outputFile),
@@ -264,7 +271,7 @@ public class ExperimentUtil {
         double[] y = yList.stream().mapToDouble(Double::doubleValue).toArray();
         double[] z = zList.stream().mapToDouble(Double::doubleValue).toArray();
 
-        dataset.addSeries("Metric", new double[][]{x, y, z});
+        dataset.addSeries("指标值", new double[][]{x, y, z});
 
         JFreeChart chart = ChartFactory.createScatterPlot(
                 title,

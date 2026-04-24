@@ -10,6 +10,7 @@ D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecomm
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\entity\ExplainResult.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\entity\RecommendationResult.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\controller\AnalysisController.java
+D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\interceptor\AdminInterceptor.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\controller\BookController.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\service\RecommendService.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\controller\LoginController.java
@@ -18,8 +19,10 @@ D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecomm
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\service\RatingService.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\controller\AdminController.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\controller\UserController.java
+D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\interceptor\LoginInterceptor.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\controller\RecommendController.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\controller\BorrowController.java
+D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\config\WebConfig.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\entity\SystemConfig.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\repository\BookRepository.java
 D:\Desktop\Final design\book-recommend-system\src\main\java\com\renlq\bookrecommendsystem\service\BorrowService.java

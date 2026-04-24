@@ -15,6 +15,30 @@ background:#f5f5f5;
 border-radius:12px;
 box-shadow:0 4px 10px rgba(0,0,0,0.1);
 }
+.category-card {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+.category-card:hover {
+    border-color: #0d6efd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.category-card.selected {
+    border-color: #0d6efd;
+    background-color: #e3f2fd;
+}
+.category-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
 </style>
 
 </head>
@@ -83,6 +107,36 @@ box-shadow:0 4px 10px rgba(0,0,0,0.1);
 
 </div>
 
+<!-- 修改偏好分类 -->
+<div class="card p-3 mt-3">
+
+<h5>🎯 修改偏好分类</h5>
+
+<!-- 显示已选偏好分类 -->
+<div class="mb-3">
+    <label class="form-label">已选偏好分类：</label>
+    <div id="selectedCategoriesDisplay" class="d-flex flex-wrap gap-2">
+        <span th:if="${user.preferredCategories == null or user.preferredCategories == ''}" class="text-muted">暂无偏好分类</span>
+        <span th:each="category : ${#strings.arraySplit(user.preferredCategories, ',')}" class="badge bg-primary text-white p-2">
+            [[${category}]]
+        </span>
+    </div>
+</div>
+
+<form th:action="@{/user/changeCategories}" method="post">
+
+<div class="mb-2">
+    <input type="text" id="categorySearch" class="form-control" placeholder="搜索分类...">
+    <div class="category-container" id="categoryContainer"></div>
+    <input type="hidden" name="preferredCategories" id="preferredCategories">
+</div>
+
+<button class="btn btn-primary">更新偏好分类</button>
+
+</form>
+
+</div>
+
 </div>
 
 <!-- Toast -->
@@ -92,7 +146,116 @@ box-shadow:0 4px 10px rgba(0,0,0,0.1);
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<script>
+<script th:inline="javascript">
+// 存储选中的分类
+let selectedCategories = [];
+// 存储所有分类
+let allCategories = [];
+// 存储默认显示的分类
+let defaultCategories = [];
+
+// 初始化分类数据
+function initCategories() {
+    try {
+        // 从后端获取分类数据
+        allCategories = /*[[${allCategories}]]*/ [];
+        defaultCategories = /*[[${categories}]]*/ [];
+    } catch (e) {
+        console.error('初始化分类数据失败:', e);
+    }
+}
+
+// 初始化选中的分类
+function initSelectedCategories() {
+    try {
+        const preferredCategories = /*[[${user.preferredCategories}]]*/ null;
+        if (preferredCategories && preferredCategories !== "null") {
+            selectedCategories = preferredCategories.split(",");
+        }
+        // 更新隐藏字段
+        document.getElementById('preferredCategories').value = selectedCategories.join(',');
+    } catch (e) {
+        console.error('初始化选中分类失败:', e);
+    }
+}
+
+// 渲染分类卡片
+function renderCategories(categories) {
+    const categoryContainer = document.getElementById('categoryContainer');
+    categoryContainer.innerHTML = '';
+    
+    categories.forEach(category => {
+        const card = document.createElement('div');
+        card.className = 'category-card col-4';
+        card.dataset.category = category;
+        if (selectedCategories.includes(category)) {
+            card.classList.add('selected');
+        }
+        card.onclick = function() { toggleCategory(this); };
+        card.innerHTML = `<span>${category}</span>`;
+        categoryContainer.appendChild(card);
+    });
+}
+
+// 显示提示信息
+function showToast(message, isError = false) {
+    const toastEl = document.getElementById('toast');
+    const body = document.getElementById('toastBody');
+    
+    body.innerText = message;
+    body.className = `toast-body text-white ${isError ? 'bg-danger' : 'bg-success'}`;
+    
+    const toast = new bootstrap.Toast(toastEl, {delay: 2000});
+    toast.show();
+}
+
+// 切换分类选择状态
+function toggleCategory(element) {
+    const category = element.dataset.category;
+    const index = selectedCategories.indexOf(category);
+    
+    if (index === -1) {
+        // 选中
+        if (selectedCategories.length < 5) {
+            selectedCategories.push(category);
+            element.classList.add('selected');
+        } else {
+            showToast('最多只能选择5个偏好分类', true);
+            return;
+        }
+    } else {
+        // 取消选中
+        selectedCategories.splice(index, 1);
+        element.classList.remove('selected');
+    }
+    
+    // 更新隐藏字段
+    document.getElementById('preferredCategories').value = selectedCategories.join(',');
+}
+
+// 搜索分类
+document.getElementById('categorySearch')?.addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase().trim();
+    
+    if (searchTerm === '') {
+        // 搜索框为空，显示默认的前8个分类
+        renderCategories(defaultCategories);
+    } else {
+        // 过滤并显示分类
+        const filteredCategories = allCategories.filter(category => 
+            category.toLowerCase().trim().includes(searchTerm)
+        );
+        renderCategories(filteredCategories);
+    }
+});
+
+// 页面加载完成后初始化
+window.addEventListener('DOMContentLoaded', function() {
+    initCategories();
+    initSelectedCategories();
+    renderCategories(defaultCategories); // 关键：初始化渲染默认分类
+});
+
 let params = new URLSearchParams(window.location.search);
 let msg = params.get("msg");
 
@@ -116,6 +279,9 @@ if(msg){
     }else if(msg === "emailExist"){
     text = "邮箱已被使用！";
     color = "bg-danger";
+}else if(msg === "categoriesSuccess"){
+    text = "偏好分类更新成功！";
+    color = "bg-success";
 }
 
     let toastEl = document.getElementById("toast");

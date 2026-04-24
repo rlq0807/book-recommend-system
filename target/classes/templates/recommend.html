@@ -54,18 +54,11 @@ body{
 
 <hr>
 
-<!-- 搜索 + 返回 + 评分偏置开关 -->
+<!-- 搜索 + 返回 -->
 <div class="row mb-4">
 
-<div class="col-md-4">
+<div class="col-md-8">
 <input id="searchInput" class="form-control" placeholder="搜索推荐书籍">
-</div>
-
-<div class="col-md-4 d-flex align-items-center">
-<div class="form-check form-switch">
-  <input class="form-check-input" type="checkbox" id="biasSwitch" th:checked="${useBias}" onchange="toggleBias()">
-  <label class="form-check-label" for="biasSwitch">使用评分偏置算法</label>
-</div>
 </div>
 
 <div class="col-md-4 text-end">
@@ -73,13 +66,6 @@ body{
 </div>
 
 </div>
-
-<script>
-function toggleBias() {
-    const useBias = document.getElementById('biasSwitch').checked;
-    window.location.href = '/recommend?useBias=' + useBias;
-}
-</script>
 
 <!-- 推荐列表 -->
 <div class="row" id="bookList">
@@ -163,17 +149,28 @@ function toggleBias() {
 
     if (msg) {
         let text = '';
+        let bgColor = 'bg-success';
 
         if (msg === 'success') {
             text = '借阅成功！';
-        } else if (msg === 'borrowed') {
+        } else if (msg === 'borrowed' || msg === 'exist') {
             text = '该书已被借出！';
+            bgColor = 'bg-danger';
+        } else if (msg === 'limit') {
+            text = '借阅数量已达上限！';
+            bgColor = 'bg-danger';
+        } else if (msg === 'banned') {
+            text = '您已被禁止借阅！';
+            bgColor = 'bg-danger';
         } else {
             text = msg;
+            bgColor = 'bg-danger';
         }
 
         const toastEl = document.getElementById('msgToast');
-        document.getElementById('toastBody').innerText = text;
+        const toastBody = document.getElementById('toastBody');
+        toastBody.innerText = text;
+        toastBody.className = `toast-body ${bgColor} text-white`;
 
         const toast = new bootstrap.Toast(toastEl, { delay: 2000 });
         toast.show();
@@ -181,4 +178,5 @@ function toggleBias() {
 </script>
 
 </body>
+
 </html>
